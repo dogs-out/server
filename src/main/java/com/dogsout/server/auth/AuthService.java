@@ -18,6 +18,11 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 @Service
 @Transactional
@@ -30,6 +35,9 @@ public class AuthService implements UserDetailsService {
 
     @Value("${google.client-id}")
     private String googleClientId;
+
+    @Value("${google.client-secret}")
+    private String googleClientSecret;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,7 +76,7 @@ public class AuthService implements UserDetailsService {
     }
 
     public AuthResponse googleAuth(GoogleAuthRequest request) {
-        String email = verifyGoogleToken(request.idToken());
+        String email = exchangeCodeForEmail(request.code(), request.codeVerifier(), request.redirectUri());
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(email);
@@ -82,7 +90,38 @@ public class AuthService implements UserDetailsService {
     }
 
     @SuppressWarnings("unchecked")
-    private String verifyGoogleToken(String idToken) {
+    private String exchangeCodeForEmail(String code, String codeVerifier, String redirectUri) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("code", code);
+        params.add("client_id", googleClientId);
+        params.add("client_secret", googleClientSecret);
+        params.add("redirect_uri", redirectUri);
+        params.add("code_verifier", codeVerifier);
+        params.add("grant_type", "authorization_code");
+
+        try {
+            Map<String, Object> tokenResponse = restTemplate.postForObject(
+                    "https://oauth2.googleapis.com/token",
+                    new HttpEntity<>(params, headers),
+                    Map.class
+            );
+            if (tokenResponse == null || !tokenResponse.containsKey("id_token")) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token exchange failed");
+            }
+            String idToken = (String) tokenResponse.get("id_token");
+            return extractEmailFromIdToken(idToken);
+        } catch (HttpClientErrorException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token exchange failed");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractEmailFromIdToken(String idToken) {
         RestTemplate restTemplate = new RestTemplate();
         try {
             Map<String, String> response = restTemplate.getForObject(
@@ -91,9 +130,6 @@ public class AuthService implements UserDetailsService {
             );
             if (response == null || !response.containsKey("email")) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
-            }
-            if (!googleClientId.isEmpty() && !googleClientId.equals(response.get("aud"))) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token audience mismatch");
             }
             return response.get("email");
         } catch (HttpClientErrorException e) {

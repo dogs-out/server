@@ -3,5 +3,7 @@ package com.dogsout.server.auth;
 import jakarta.validation.constraints.NotBlank;
 
 public record GoogleAuthRequest(
-        @NotBlank String idToken
+        @NotBlank String code,
+        @NotBlank String codeVerifier,
+        @NotBlank String redirectUri
 ) {}
