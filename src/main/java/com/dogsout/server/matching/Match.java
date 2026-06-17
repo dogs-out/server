@@ -1,4 +1,4 @@
-package com.dogsout.server.dog;
+package com.dogsout.server.matching;
 
 import com.dogsout.server.user.User;
 import jakarta.persistence.*;
@@ -10,27 +10,27 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "dogs")
+@Table(name = "matches")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Dog {
+public class Match {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String name;
-
-    private String breed;
-    private Integer age;
-    private String bio;
-    private String profilePicture;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user1_id")
+    private User user1;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "owner_id")
-    private User owner;
+    @JoinColumn(name = "user2_id")
+    private User user2;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MatchStatus status;
 
     @CreationTimestamp
     @Column(updatable = false)
