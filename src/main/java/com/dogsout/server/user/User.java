@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -43,6 +44,16 @@ public class User {
     private AuthProvider authProvider;
 
     private Boolean isActive;
+    private Boolean emailVerified = false;
+
+    private String verificationCode;
+    private LocalDateTime verificationCodeExpiry;
+
+    private String resetToken;
+    private LocalDateTime resetTokenExpiry;
+
+    @Column(unique = true)
+    private String appleUserId;
 
     @CreationTimestamp
     @Column(updatable = false)
