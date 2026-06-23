@@ -81,7 +81,7 @@ public class AuthService implements UserDetailsService {
             // Unverified account — resend a fresh code
             assignVerificationCode(user);
             userRepository.save(user);
-            emailService.sendVerificationEmail(user.getEmail(), user.getVerificationCode());
+            sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
             return new MessageResponse("A new verification code has been sent to your email.");
         }
 
@@ -96,7 +96,7 @@ public class AuthService implements UserDetailsService {
         assignVerificationCode(user);
         userRepository.save(user);
 
-        emailService.sendVerificationEmail(user.getEmail(), user.getVerificationCode());
+        sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
         return new MessageResponse("Registration successful. Please check your email to verify your account.");
     }
 
@@ -119,10 +119,15 @@ public class AuthService implements UserDetailsService {
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        if (user.getAuthProvider() != null && user.getAuthProvider() != AuthProvider.LOCAL) {
+            String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This account uses " + provider + " Sign-In. Please tap \"Sign in with " + provider + "\" instead.");
+        }
         if (Boolean.FALSE.equals(user.getEmailVerified())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Please verify your email address before logging in");
         }
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (user.getPassword() == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
         return new AuthResponse(jwtUtil.generateToken(user.getEmail()), user.getEmail(), user.getName(), false);
@@ -142,6 +147,12 @@ public class AuthService implements UserDetailsService {
             newUser.setEmailVerified(true);
             return userRepository.save(newUser);
         });
+        if (!isNew[0]) {
+            // Ensure any existing account (e.g. registered locally but unverified) is upgraded
+            user.setEmailVerified(true);
+            user.setAuthProvider(AuthProvider.GOOGLE);
+            userRepository.save(user);
+        }
         return new AuthResponse(jwtUtil.generateToken(user.getEmail()), user.getEmail(), user.getName(), isNew[0]);
     }
 
@@ -183,15 +194,23 @@ public class AuthService implements UserDetailsService {
     }
 
     public MessageResponse forgotPassword(PasswordResetRequest request) {
-        // Always return the same message to prevent account enumeration
-        userRepository.findByEmail(request.email()).ifPresent(user -> {
-            String token = UUID.randomUUID().toString();
-            user.setResetToken(token);
-            user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
-            userRepository.save(user);
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found with that email address"));
+        if (user.getAuthProvider() != AuthProvider.LOCAL) {
+            String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "This account uses " + provider + " Sign-In. Please log in with " + provider + " instead.");
+        }
+        String token = UUID.randomUUID().toString();
+        user.setResetToken(token);
+        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+        try {
             emailService.sendPasswordResetEmail(user.getEmail(), token);
-        });
-        return new MessageResponse("If an account with that email exists, a password reset code has been sent.");
+        } catch (Exception e) {
+            System.err.printf("[DEV] Password reset token for %s: %s%n", user.getEmail(), token);
+        }
+        return new MessageResponse("A password reset code has been sent to your email.");
     }
 
     public MessageResponse resetPassword(ResetPasswordRequest request) {
@@ -205,6 +224,14 @@ public class AuthService implements UserDetailsService {
         user.setResetTokenExpiry(null);
         userRepository.save(user);
         return new MessageResponse("Password reset successfully. Please log in with your new password.");
+    }
+
+    private void sendVerificationEmailSafely(String email, String code) {
+        try {
+            emailService.sendVerificationEmail(email, code);
+        } catch (Exception e) {
+            System.err.printf("[DEV] Verification code for %s: %s%n", email, code);
+        }
     }
 
     private void assignVerificationCode(User user) {

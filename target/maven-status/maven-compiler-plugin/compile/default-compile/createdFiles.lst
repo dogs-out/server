@@ -4,9 +4,12 @@ com/dogsout/server/auth/VerifyEmailRequest.class
 com/dogsout/server/auth/AuthService.class
 com/dogsout/server/auth/PasswordResetRequest.class
 com/dogsout/server/auth/EmailService.class
+com/dogsout/server/user/UserService.class
 com/dogsout/server/auth/AppleAuthRequest.class
 com/dogsout/server/auth/JwtUtil.class
+com/dogsout/server/user/UserController.class
 com/dogsout/server/user/Role.class
+com/dogsout/server/user/UpdateProfileRequest.class
 com/dogsout/server/chat/MessageRepository.class
 com/dogsout/server/auth/AuthResponse.class
 com/dogsout/server/chat/Message.class
@@ -27,3 +30,4 @@ com/dogsout/server/auth/LoginRequest.class
 com/dogsout/server/auth/MessageResponse.class
 com/dogsout/server/user/User.class
 com/dogsout/server/auth/SecurityConfig.class
+com/dogsout/server/user/UserResponse.class

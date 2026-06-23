@@ -27,7 +27,9 @@
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/MatchStatus.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/AuthProvider.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/Role.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/UpdateProfileRequest.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/User.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/UserController.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/UserRepository.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/UserResponse.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/UserService.java

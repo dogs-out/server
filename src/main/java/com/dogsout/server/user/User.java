@@ -31,7 +31,11 @@ public class User {
     private String password;
 
     private LocalDate dateOfBirth;
+
+    @Column(columnDefinition = "TEXT")
     private String bio;
+
+    @Column(columnDefinition = "TEXT")
     private String profilePicture;
 
     private Double latitude;
