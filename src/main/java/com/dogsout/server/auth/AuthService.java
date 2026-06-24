@@ -134,7 +134,7 @@ public class AuthService implements UserDetailsService {
     }
 
     public AuthResponse googleAuth(GoogleAuthRequest request) {
-        String email = exchangeGoogleCodeForEmail(request.code(), request.codeVerifier(), request.redirectUri());
+        String email = exchangeGoogleCodeForEmail(request.code(), request.codeVerifier(), request.redirectUri(), request.clientId());
         boolean[] isNew = {false};
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             isNew[0] = true;
@@ -240,14 +240,19 @@ public class AuthService implements UserDetailsService {
     }
 
     @SuppressWarnings("unchecked")
-    private String exchangeGoogleCodeForEmail(String code, String codeVerifier, String redirectUri) {
+    private String exchangeGoogleCodeForEmail(String code, String codeVerifier, String redirectUri, String clientId) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
-        params.add("client_id", googleClientId);
-        params.add("client_secret", googleClientSecret);
+        params.add("client_id", clientId);
+        // iOS/Android native clients are public clients — PKCE replaces the secret.
+        // Web clients are confidential and require the client secret.
+        boolean isNativeClient = redirectUri.startsWith("com.googleusercontent.apps");
+        if (!isNativeClient) {
+            params.add("client_secret", googleClientSecret);
+        }
         params.add("redirect_uri", redirectUri);
         params.add("code_verifier", codeVerifier);
         params.add("grant_type", "authorization_code");

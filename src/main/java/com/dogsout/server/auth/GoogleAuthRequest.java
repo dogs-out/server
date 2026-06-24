@@ -5,5 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 public record GoogleAuthRequest(
         @NotBlank String code,
         @NotBlank String codeVerifier,
-        @NotBlank String redirectUri
+        @NotBlank String redirectUri,
+        @NotBlank String clientId
 ) {}
