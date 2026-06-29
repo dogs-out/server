@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,9 +25,25 @@ public class Dog {
     private String name;
 
     private String breed;
-    private Integer age;
+    private LocalDate dateOfBirth;
+
+    @Column(columnDefinition = "TEXT")
     private String bio;
+
+    @Column(columnDefinition = "TEXT")
     private String profilePicture;
+
+    private Integer energyLevel;
+    private String socialBehavior;
+
+    @Column(columnDefinition = "TEXT")
+    private String loves;
+
+    private String offLeash;
+    private Integer kidsComfort;
+
+    @Column(columnDefinition = "TEXT")
+    private String tags;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "owner_id")

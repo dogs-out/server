@@ -59,6 +59,14 @@ public class User {
     @Column(unique = true)
     private String appleUserId;
 
+    @Column(columnDefinition = "TEXT")
+    private String lifestyleTags;
+
+    @Column(columnDefinition = "TEXT")
+    private String personalityTags;
+
+    private String relationshipStatus;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

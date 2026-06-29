@@ -47,6 +47,7 @@ public class AuthService implements UserDetailsService {
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final RateLimiter rateLimiter;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -72,6 +73,8 @@ public class AuthService implements UserDetailsService {
     }
 
     public MessageResponse register(RegisterRequest request) {
+        rateLimiter.check(request.email());
+        rateLimiter.recordFailure(request.email());
         Optional<User> existing = userRepository.findByEmail(request.email());
         if (existing.isPresent()) {
             User user = existing.get();
@@ -117,8 +120,12 @@ public class AuthService implements UserDetailsService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        rateLimiter.check(request.email());
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+                .orElseThrow(() -> {
+                    rateLimiter.recordFailure(request.email());
+                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+                });
         if (user.getAuthProvider() != null && user.getAuthProvider() != AuthProvider.LOCAL) {
             String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -128,8 +135,10 @@ public class AuthService implements UserDetailsService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Please verify your email address before logging in");
         }
         if (user.getPassword() == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+            rateLimiter.recordFailure(request.email());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
+        rateLimiter.reset(request.email());
         return new AuthResponse(jwtUtil.generateToken(user.getEmail()), user.getEmail(), user.getName(), false);
     }
 
