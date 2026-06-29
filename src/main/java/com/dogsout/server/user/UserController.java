@@ -1,9 +1,12 @@
 package com.dogsout.server.user;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -20,8 +23,22 @@ public class UserController {
     @PutMapping("/me")
     public ResponseEntity<UserResponse> updateMe(
             Authentication auth,
-            @RequestBody UpdateProfileRequest request
+            @Valid @RequestBody UpdateProfileRequest request
     ) {
         return ResponseEntity.ok(userService.updateProfile(auth.getName(), request));
+    }
+
+    @PostMapping("/me/photos")
+    public ResponseEntity<UserPhotoResponse> addPhoto(
+            Authentication auth,
+            @RequestBody Map<String, String> body
+    ) {
+        return ResponseEntity.ok(userService.addPhoto(auth.getName(), body.get("imageData")));
+    }
+
+    @DeleteMapping("/me/photos/{photoId}")
+    public ResponseEntity<Void> deletePhoto(Authentication auth, @PathVariable Long photoId) {
+        userService.deletePhoto(auth.getName(), photoId);
+        return ResponseEntity.noContent().build();
     }
 }
