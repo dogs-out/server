@@ -28,6 +28,12 @@ public class UserController {
         return ResponseEntity.ok(userService.updateProfile(auth.getName(), request));
     }
 
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteAccount(Authentication auth) {
+        userService.deleteAccount(auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/me/photos")
     public ResponseEntity<UserPhotoResponse> addPhoto(
             Authentication auth,

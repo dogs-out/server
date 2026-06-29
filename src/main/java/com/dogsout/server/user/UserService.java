@@ -1,5 +1,8 @@
 package com.dogsout.server.user;
 
+import com.dogsout.server.dog.Dog;
+import com.dogsout.server.dog.DogPhotoRepository;
+import com.dogsout.server.dog.DogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,8 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserPhotoRepository userPhotoRepository;
+    private final DogRepository dogRepository;
+    private final DogPhotoRepository dogPhotoRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -62,6 +67,15 @@ public class UserService {
         List<UserPhoto> remaining = userPhotoRepository.findByUserOrderBySortOrderAsc(user);
         user.setProfilePicture(remaining.isEmpty() ? null : remaining.get(0).getImageData());
         userRepository.save(user);
+    }
+
+    public void deleteAccount(String email) {
+        User user = findUser(email);
+        List<Dog> dogs = dogRepository.findByOwner(user);
+        dogs.forEach(dog -> dogPhotoRepository.deleteAll(dogPhotoRepository.findByDogOrderBySortOrderAsc(dog)));
+        dogRepository.deleteAll(dogs);
+        userPhotoRepository.deleteAll(userPhotoRepository.findByUserOrderBySortOrderAsc(user));
+        userRepository.delete(user);
     }
 
     private User findUser(String email) {

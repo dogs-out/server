@@ -124,7 +124,7 @@ public class AuthService implements UserDetailsService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> {
                     rateLimiter.recordFailure(request.email());
-                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found with that email address");
                 });
         if (user.getAuthProvider() != null && user.getAuthProvider() != AuthProvider.LOCAL) {
             String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
