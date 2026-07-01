@@ -31,9 +31,16 @@
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/dog/DogRequest.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/dog/DogResponse.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/dog/DogService.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/DiscoverController.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/DiscoverProfile.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/DiscoverService.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/Match.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/MatchController.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/MatchRepository.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/MatchService.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/MatchStatus.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/SwipeRequest.java
+/Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/matching/SwipeResponse.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/upload/UploadController.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/upload/WebConfig.java
 /Users/moritzdavinghausen/Projects/DogsOut/server/src/main/java/com/dogsout/server/user/AuthProvider.java

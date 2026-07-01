@@ -1,16 +1,19 @@
 package com.dogsout.server.user;
 
+import com.dogsout.server.ProfanityFilter;
 import com.dogsout.server.dog.Dog;
 import com.dogsout.server.dog.DogPhotoRepository;
 import com.dogsout.server.dog.DogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Arrays;
 import java.util.List;
+import com.dogsout.server.user.AuthProvider;
 
 @Service
 @Transactional
@@ -21,6 +24,8 @@ public class UserService {
     private final UserPhotoRepository userPhotoRepository;
     private final DogRepository dogRepository;
     private final DogPhotoRepository dogPhotoRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final ProfanityFilter profanityFilter;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -28,6 +33,10 @@ public class UserService {
     }
 
     public UserResponse updateProfile(String email, UpdateProfileRequest request) {
+        if (profanityFilter.containsProfanity(request.name()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your name contains inappropriate language.");
+        if (profanityFilter.containsProfanity(request.bio()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your bio contains inappropriate language.");
         User user = findUser(email);
         if (request.name() != null)             user.setName(request.name());
         if (request.bio() != null)              user.setBio(request.bio());
@@ -38,8 +47,25 @@ public class UserService {
         if (request.lifestyleTags() != null)    user.setLifestyleTags(request.lifestyleTags().isEmpty() ? null : String.join("||", request.lifestyleTags()));
         if (request.personalityTags() != null)  user.setPersonalityTags(request.personalityTags().isEmpty() ? null : String.join("||", request.personalityTags()));
         if (request.relationshipStatus() != null) user.setRelationshipStatus(request.relationshipStatus());
+        if (request.maxDistanceKm() != null)      user.setMaxDistanceKm(request.maxDistanceKm() <= 0 ? null : request.maxDistanceKm());
+        if (request.minAge() != null)             user.setMinAge(request.minAge() <= 0 ? null : request.minAge());
+        if (request.maxAge() != null)             user.setMaxAge(request.maxAge() <= 0 ? null : request.maxAge());
+        if (request.minDogAge() != null)          user.setMinDogAge(request.minDogAge() < 0 ? null : request.minDogAge());
+        if (request.maxDogAge() != null)          user.setMaxDogAge(request.maxDogAge() <= 0 ? null : request.maxDogAge());
         userRepository.save(user);
         return toResponse(user);
+    }
+
+    public void changePassword(String email, ChangePasswordRequest request) {
+        User user = findUser(email);
+        if (user.getAuthProvider() != AuthProvider.LOCAL) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password change is not available for social login accounts");
+        }
+        if (user.getPassword() == null || !passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
     }
 
     public UserPhotoResponse addPhoto(String email, String imageData) {
@@ -101,7 +127,12 @@ public class UserService {
                 user.getPersonalityTags() != null ? Arrays.asList(user.getPersonalityTags().split("\\|\\|")) : List.of(),
                 user.getRelationshipStatus(),
                 user.getCreatedAt(),
-                photos
+                photos,
+                user.getMaxDistanceKm(),
+                user.getMinAge(),
+                user.getMaxAge(),
+                user.getMinDogAge(),
+                user.getMaxDogAge()
         );
     }
 }

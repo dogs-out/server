@@ -67,6 +67,12 @@ public class User {
 
     private String relationshipStatus;
 
+    private Integer maxDistanceKm;
+    private Integer minAge;
+    private Integer maxAge;
+    private Integer minDogAge;
+    private Integer maxDogAge;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

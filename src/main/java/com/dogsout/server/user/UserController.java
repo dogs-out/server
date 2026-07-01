@@ -28,6 +28,15 @@ public class UserController {
         return ResponseEntity.ok(userService.updateProfile(auth.getName(), request));
     }
 
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changePassword(
+            Authentication auth,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        userService.changePassword(auth.getName(), request);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAccount(Authentication auth) {
         userService.deleteAccount(auth.getName());
