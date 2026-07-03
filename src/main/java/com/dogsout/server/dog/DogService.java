@@ -1,5 +1,6 @@
 package com.dogsout.server.dog;
 
+import com.dogsout.server.ProfanityFilter;
 import com.dogsout.server.user.User;
 import com.dogsout.server.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,14 @@ public class DogService {
     private final DogRepository dogRepository;
     private final UserRepository userRepository;
     private final DogPhotoRepository dogPhotoRepository;
+    private final ProfanityFilter profanityFilter;
 
     public DogResponse createDog(String email, DogRequest request) {
         User owner = findUser(email);
         if (dogRepository.countByOwner(owner) >= 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You can add a maximum of 3 dogs.");
         }
+        checkProfanity(request.name(), request.bio());
         Dog dog = new Dog();
         applyRequest(dog, request);
         dog.setOwner(owner);
@@ -45,6 +48,7 @@ public class DogService {
     public DogResponse updateDog(String email, Long id, DogRequest request) {
         Dog dog = findDog(id);
         assertOwner(email, dog);
+        checkProfanity(request.name(), request.bio());
         applyRequest(dog, request);
         return toResponse(dogRepository.save(dog));
     }
@@ -83,6 +87,13 @@ public class DogService {
         List<DogPhoto> remaining = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
         dog.setProfilePicture(remaining.isEmpty() ? null : remaining.get(0).getImageData());
         dogRepository.save(dog);
+    }
+
+    private void checkProfanity(String name, String bio) {
+        if (profanityFilter.containsProfanity(name))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your dog's name contains inappropriate language.");
+        if (profanityFilter.containsProfanity(bio))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your dog's bio contains inappropriate language.");
     }
 
     private void applyRequest(Dog dog, DogRequest req) {

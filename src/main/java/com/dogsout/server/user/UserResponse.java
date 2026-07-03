@@ -19,5 +19,10 @@ public record UserResponse(
         List<String> personalityTags,
         String relationshipStatus,
         LocalDateTime createdAt,
-        List<UserPhotoResponse> photos
+        List<UserPhotoResponse> photos,
+        Integer maxDistanceKm,
+        Integer minAge,
+        Integer maxAge,
+        Integer minDogAge,
+        Integer maxDogAge
 ) {}

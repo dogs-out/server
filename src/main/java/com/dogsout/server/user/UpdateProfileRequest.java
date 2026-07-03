@@ -19,5 +19,10 @@ public record UpdateProfileRequest(
         @Size(max = 2_000_000) String profilePicture,
         List<String> lifestyleTags,
         List<String> personalityTags,
-        String relationshipStatus
+        String relationshipStatus,
+        Integer maxDistanceKm,
+        Integer minAge,
+        Integer maxAge,
+        Integer minDogAge,
+        Integer maxDogAge
 ) {}
