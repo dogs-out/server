@@ -31,6 +31,15 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    public void sendReportEmail(String toEmail, String subject, String body) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(toEmail);
+        message.setSubject(subject);
+        message.setText(body);
+        mailSender.send(message);
+    }
+
     public void sendPasswordResetEmail(String toEmail, String token) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);

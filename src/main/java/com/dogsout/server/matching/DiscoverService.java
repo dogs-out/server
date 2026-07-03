@@ -4,6 +4,7 @@ import com.dogsout.server.dog.DogPhotoRepository;
 import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.dog.DogResponse;
 import com.dogsout.server.dog.DogPhotoResponse;
+import com.dogsout.server.moderation.BlockRepository;
 import com.dogsout.server.user.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,19 +37,27 @@ public class DiscoverService {
     private final DogRepository dogRepository;
     private final DogPhotoRepository dogPhotoRepository;
     private final MatchRepository matchRepository;
+    private final BlockRepository blockRepository;
 
     public List<DiscoverProfile> getDiscoverFeed(String email) {
         User me = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        List<Long> alreadySwiped = matchRepository.findSwipedUserIdsByUser1Id(me.getId());
+        // Exclude users I swiped on AND users already matched with me (where I'm user2)
+        java.util.Set<Long> excluded = new java.util.HashSet<>(matchRepository.findSwipedUserIdsByUser1Id(me.getId()));
+        excluded.addAll(matchRepository.findMatchedUserIdsByUser2Id(me.getId()));
+        // Blocks hide users in both directions
+        excluded.addAll(blockRepository.findBlockedIdsByBlockerId(me.getId()));
+        excluded.addAll(blockRepository.findBlockerIdsByBlockedId(me.getId()));
+
         boolean hasLocation = me.getLatitude() != null && me.getLongitude() != null;
         double maxDist = me.getMaxDistanceKm() != null ? me.getMaxDistanceKm() : MAX_DISTANCE_KM;
-        boolean distFilterOn = hasLocation && me.getMaxDistanceKm() != null;
+        // Distance cap always applies when we know the user's location (50 km default)
+        boolean distFilterOn = hasLocation;
 
         return userRepository.findAll().stream()
                 .filter(u -> !u.getId().equals(me.getId()))
-                .filter(u -> !alreadySwiped.contains(u.getId()))
+                .filter(u -> !excluded.contains(u.getId()))
                 .filter(u -> !distFilterOn || (u.getLatitude() != null && u.getLongitude() != null
                         && calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()) <= maxDist))
                 .filter(u -> passesAgeFilter(u, me.getMinAge(), me.getMaxAge()))
@@ -58,6 +67,18 @@ public class DiscoverService {
                         a.distanceKm() < 0 ? Double.MAX_VALUE : a.distanceKm(),
                         b.distanceKm() < 0 ? Double.MAX_VALUE : b.distanceKm()))
                 .toList();
+    }
+
+    public DiscoverProfile getProfile(String email, Long userId) {
+        User me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        // A blocked user's profile behaves as if it no longer exists
+        if (blockRepository.existsBlockBetween(me.getId(), target.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        return toDiscoverProfile(target, me);
     }
 
     private DiscoverProfile toDiscoverProfile(User u, User me) {
@@ -87,8 +108,12 @@ public class DiscoverService {
                 })
                 .toList();
 
+        // Expose only the computed age, never the exact birth date
+        Integer age = u.getDateOfBirth() == null ? null
+                : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
+
         return new DiscoverProfile(
-                u.getId(), u.getName(), u.getDateOfBirth(), u.getBio(), u.getProfilePicture(),
+                u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
                 userPhotos,
                 u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split("\\|\\|")) : List.of(),
                 u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split("\\|\\|")) : List.of(),

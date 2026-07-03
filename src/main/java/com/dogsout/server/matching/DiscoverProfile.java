@@ -3,13 +3,12 @@ package com.dogsout.server.matching;
 import com.dogsout.server.dog.DogResponse;
 import com.dogsout.server.user.UserPhotoResponse;
 
-import java.time.LocalDate;
 import java.util.List;
 
 public record DiscoverProfile(
         Long userId,
         String name,
-        LocalDate dateOfBirth,
+        Integer age,
         String bio,
         String profilePicture,
         List<UserPhotoResponse> photos,

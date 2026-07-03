@@ -1,5 +1,6 @@
 package com.dogsout.server.user;
 
+import com.dogsout.server.auth.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMe(Authentication auth) {
@@ -29,12 +31,13 @@ public class UserController {
     }
 
     @PutMapping("/me/password")
-    public ResponseEntity<Void> changePassword(
+    public ResponseEntity<Map<String, String>> changePassword(
             Authentication auth,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
         userService.changePassword(auth.getName(), request);
-        return ResponseEntity.noContent().build();
+        // Old tokens are now revoked — hand the caller a fresh one so they stay signed in
+        return ResponseEntity.ok(Map.of("token", jwtUtil.generateToken(auth.getName())));
     }
 
     @DeleteMapping("/me")

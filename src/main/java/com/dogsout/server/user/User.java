@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -55,6 +56,9 @@ public class User {
 
     private String resetToken;
     private LocalDateTime resetTokenExpiry;
+
+    // Tokens issued before this moment are rejected (see JwtAuthFilter)
+    private Instant passwordChangedAt;
 
     @Column(unique = true)
     private String appleUserId;
