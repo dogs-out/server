@@ -229,6 +229,7 @@ public class AuthService implements UserDetailsService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset token");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setPasswordChangedAt(java.time.Instant.now());
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
         userRepository.save(user);

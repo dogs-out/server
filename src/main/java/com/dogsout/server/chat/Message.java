@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "messages")
@@ -38,7 +38,7 @@ public class Message {
 
     @CreationTimestamp
     @Column(updatable = false)
-    private LocalDateTime sentAt;
+    private Instant sentAt;
 
     private Boolean isRead = false;
 }

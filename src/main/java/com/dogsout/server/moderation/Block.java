@@ -1,4 +1,4 @@
-package com.dogsout.server.matching;
+package com.dogsout.server.moderation;
 
 import com.dogsout.server.user.User;
 import jakarta.persistence.*;
@@ -10,27 +10,23 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 
 @Entity
-@Table(name = "matches", uniqueConstraints = @UniqueConstraint(columnNames = {"user1_id", "user2_id"}))
+@Table(name = "blocks", uniqueConstraints = @UniqueConstraint(columnNames = {"blocker_id", "blocked_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class Match {
+public class Block {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "user1_id")
-    private User user1;
+    @JoinColumn(name = "blocker_id")
+    private User blocker;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "user2_id")
-    private User user2;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private MatchStatus status;
+    @JoinColumn(name = "blocked_id")
+    private User blocked;
 
     @CreationTimestamp
     @Column(updatable = false)

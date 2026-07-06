@@ -26,3 +26,6 @@ replay_pid*
 # Local secrets (never commit)
 application-local.properties
 /application.properties
+
+# Maven build output (never commit)
+/target/

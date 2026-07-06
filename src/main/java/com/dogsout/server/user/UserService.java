@@ -1,9 +1,12 @@
 package com.dogsout.server.user;
 
 import com.dogsout.server.ProfanityFilter;
+import com.dogsout.server.chat.MessageRepository;
 import com.dogsout.server.dog.Dog;
 import com.dogsout.server.dog.DogPhotoRepository;
 import com.dogsout.server.dog.DogRepository;
+import com.dogsout.server.matching.MatchRepository;
+import com.dogsout.server.moderation.BlockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +29,9 @@ public class UserService {
     private final DogPhotoRepository dogPhotoRepository;
     private final PasswordEncoder passwordEncoder;
     private final ProfanityFilter profanityFilter;
+    private final MessageRepository messageRepository;
+    private final MatchRepository matchRepository;
+    private final BlockRepository blockRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -65,6 +71,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
+        user.setPasswordChangedAt(java.time.Instant.now());
         userRepository.save(user);
     }
 
@@ -97,6 +104,10 @@ public class UserService {
 
     public void deleteAccount(String email) {
         User user = findUser(email);
+        // Messages reference matches, so they must go first
+        messageRepository.deleteBySenderOrReceiver(user, user);
+        matchRepository.deleteByUser1OrUser2(user, user);
+        blockRepository.deleteByBlockerOrBlocked(user, user);
         List<Dog> dogs = dogRepository.findByOwner(user);
         dogs.forEach(dog -> dogPhotoRepository.deleteAll(dogPhotoRepository.findByDogOrderBySortOrderAsc(dog)));
         dogRepository.deleteAll(dogs);

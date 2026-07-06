@@ -33,6 +33,10 @@ public class JwtUtil {
         return claims(token).getSubject();
     }
 
+    public Date extractIssuedAt(String token) {
+        return claims(token).getIssuedAt();
+    }
+
     public boolean isValid(String token) {
         try {
             claims(token);
