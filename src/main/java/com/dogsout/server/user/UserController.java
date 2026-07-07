@@ -40,6 +40,18 @@ public class UserController {
         return ResponseEntity.ok(Map.of("token", jwtUtil.generateToken(auth.getName())));
     }
 
+    @PutMapping("/me/push-token")
+    public ResponseEntity<Void> setPushToken(Authentication auth, @RequestBody Map<String, String> body) {
+        userService.setPushToken(auth.getName(), body.get("token"));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/me/notifications")
+    public ResponseEntity<Void> setNotificationsEnabled(Authentication auth, @RequestBody Map<String, Boolean> body) {
+        userService.setNotificationsEnabled(auth.getName(), Boolean.TRUE.equals(body.get("enabled")));
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAccount(Authentication auth) {
         userService.deleteAccount(auth.getName());

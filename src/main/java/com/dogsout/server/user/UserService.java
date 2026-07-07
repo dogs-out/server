@@ -102,6 +102,18 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public void setPushToken(String email, String token) {
+        User user = findUser(email);
+        user.setExpoPushToken(token == null || token.isBlank() ? null : token);
+        userRepository.save(user);
+    }
+
+    public void setNotificationsEnabled(String email, boolean enabled) {
+        User user = findUser(email);
+        user.setNotificationsEnabled(enabled);
+        userRepository.save(user);
+    }
+
     public void deleteAccount(String email) {
         User user = findUser(email);
         // Messages reference matches, so they must go first
@@ -143,7 +155,8 @@ public class UserService {
                 user.getMinAge(),
                 user.getMaxAge(),
                 user.getMinDogAge(),
-                user.getMaxDogAge()
+                user.getMaxDogAge(),
+                !Boolean.FALSE.equals(user.getNotificationsEnabled())
         );
     }
 }
