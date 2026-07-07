@@ -3,7 +3,10 @@ package com.dogsout.server.matching;
 import com.dogsout.server.chat.Message;
 import com.dogsout.server.chat.MessageRepository;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.notification.PushNotificationService;
 import com.dogsout.server.user.User;
+import com.dogsout.server.websocket.ChatSocketEvent;
+import com.dogsout.server.websocket.ChatSocketHandler;
 import com.dogsout.server.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,8 @@ public class MatchService {
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final BlockRepository blockRepository;
+    private final ChatSocketHandler chatSocketHandler;
+    private final PushNotificationService pushNotificationService;
 
     public SwipeResponse swipe(String email, SwipeRequest request) {
         User me = userRepository.findByEmail(email)
@@ -61,6 +66,13 @@ public class MatchService {
                 Match mutual = theirPending.get();
                 mutual.setStatus(MatchStatus.MATCHED);
                 matchRepository.save(mutual);
+                // The other user finds out live — the swiper sees the match overlay anyway
+                chatSocketHandler.sendToUser(target.getId(), ChatSocketEvent.newMatch(mutual.getId()));
+                if (!chatSocketHandler.isOnline(target.getId())) {
+                    pushNotificationService.send(target, "It's a Match! 🐾",
+                            "You and " + me.getName() + " gave each other a treat. Say hi!",
+                            java.util.Map.of("type", "NEW_MATCH", "matchId", mutual.getId()));
+                }
                 return new SwipeResponse(true, mutual.getId());
             }
         }

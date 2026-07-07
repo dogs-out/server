@@ -2,11 +2,14 @@ package com.dogsout.server.chat;
 
 import com.dogsout.server.ProfanityFilter;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.notification.PushNotificationService;
 import com.dogsout.server.matching.Match;
 import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.matching.MatchStatus;
 import com.dogsout.server.user.User;
 import com.dogsout.server.user.UserRepository;
+import com.dogsout.server.websocket.ChatSocketEvent;
+import com.dogsout.server.websocket.ChatSocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,8 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ProfanityFilter profanityFilter;
     private final BlockRepository blockRepository;
+    private final ChatSocketHandler chatSocketHandler;
+    private final PushNotificationService pushNotificationService;
 
     public List<MessageResponse> getMessages(String email, Long matchId) {
         User me = findUser(email);
@@ -52,7 +57,24 @@ public class ChatService {
         message.setReceiver(other);
         message.setMatch(match);
         message.setContent(request.content().trim());
-        return toResponse(messageRepository.save(message));
+        MessageResponse response = toResponse(messageRepository.save(message));
+
+        // Live update for the receiver, and for the sender's other devices
+        chatSocketHandler.sendToUser(other.getId(), ChatSocketEvent.newMessage(match.getId(), response));
+        chatSocketHandler.sendToUser(me.getId(), ChatSocketEvent.newMessage(match.getId(), response));
+
+        // A connected receiver already sees the message live — push only reaches absent ones
+        if (!chatSocketHandler.isOnline(other.getId())) {
+            String preview = response.content().length() > 120
+                    ? response.content().substring(0, 117) + "…" : response.content();
+            pushNotificationService.send(other, me.getName(), preview, java.util.Map.of(
+                    "type", "NEW_MESSAGE",
+                    "matchId", match.getId(),
+                    "otherUserId", me.getId(),
+                    "name", me.getName()
+            ));
+        }
+        return response;
     }
 
     private Match findMatchedMatch(Long matchId, User me) {

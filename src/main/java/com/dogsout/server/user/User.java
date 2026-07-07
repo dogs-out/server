@@ -77,6 +77,10 @@ public class User {
     private Integer minDogAge;
     private Integer maxDogAge;
 
+    // Push notifications (Expo)
+    private String expoPushToken;
+    private Boolean notificationsEnabled = true;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

@@ -31,7 +31,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/auth/**", "/uploads/**", "/error").permitAll()
+                        // /ws authenticates itself via JWT in the handshake interceptor
+                        .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
