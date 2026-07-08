@@ -19,8 +19,8 @@ public class UploadController {
     @Value("${upload.dir:uploads}")
     private String uploadDir;
 
-    @Value("${server.port:8080}")
-    private String serverPort;
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
     @PostMapping("/image")
     public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) throws IOException {
@@ -36,7 +36,7 @@ public class UploadController {
         Files.createDirectories(dir);
         Files.copy(file.getInputStream(), dir.resolve(filename));
 
-        String url = "http://localhost:" + serverPort + "/uploads/" + filename;
+        String url = baseUrl + "/uploads/" + filename;
         return ResponseEntity.ok(Map.of("url", url));
     }
 }
