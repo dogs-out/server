@@ -218,7 +218,7 @@ public class AuthService implements UserDetailsService {
         try {
             emailService.sendPasswordResetEmail(user.getEmail(), token);
         } catch (Exception e) {
-            System.err.printf("[DEV] Password reset token for %s: %s%n", user.getEmail(), token);
+            System.err.printf("[DEV] Password reset token for %s: %s (send failed: %s)%n", user.getEmail(), token, e.getMessage());
         }
         return new MessageResponse("A password reset code has been sent to your email.");
     }
@@ -241,7 +241,7 @@ public class AuthService implements UserDetailsService {
         try {
             emailService.sendVerificationEmail(email, code);
         } catch (Exception e) {
-            System.err.printf("[DEV] Verification code for %s: %s%n", email, code);
+            System.err.printf("[DEV] Verification code for %s: %s (send failed: %s)%n", email, code, e.getMessage());
         }
     }
 
