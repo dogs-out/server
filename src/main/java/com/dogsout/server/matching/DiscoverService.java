@@ -112,12 +112,16 @@ public class DiscoverService {
         Integer age = u.getDateOfBirth() == null ? null
                 : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
 
+        // "Prefer not to say" is a request to hide the field from other users, not just leave it blank
+        String relationshipStatus = "Prefer not to say".equals(u.getRelationshipStatus())
+                ? null : u.getRelationshipStatus();
+
         return new DiscoverProfile(
                 u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
                 userPhotos,
                 u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split("\\|\\|")) : List.of(),
                 u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split("\\|\\|")) : List.of(),
-                u.getRelationshipStatus(),
+                relationshipStatus,
                 dogs,
                 distance
         );
