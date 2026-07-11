@@ -205,6 +205,8 @@ public class AuthService implements UserDetailsService {
     }
 
     public MessageResponse forgotPassword(PasswordResetRequest request) {
+        rateLimiter.check(request.email());
+        rateLimiter.recordFailure(request.email());
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found with that email address"));
         // Allowed even for Google/Apple-only accounts — this doubles as "add a password"
