@@ -126,15 +126,15 @@ public class AuthService implements UserDetailsService {
                     rateLimiter.recordFailure(request.email());
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found with that email address");
                 });
-        if (user.getAuthProvider() != null && user.getAuthProvider() != AuthProvider.LOCAL) {
-            String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
+        if (user.getPassword() == null) {
+            String provider = user.getAuthProvider() == AuthProvider.APPLE ? "Apple" : "Google";
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "This account uses " + provider + " Sign-In. Please tap \"Sign in with " + provider + "\" instead.");
+                    "This account doesn't have a password set. Please sign in with " + provider + ", or use \"Forgot password\" to add one.");
         }
         if (Boolean.FALSE.equals(user.getEmailVerified())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Please verify your email address before logging in");
         }
-        if (user.getPassword() == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             rateLimiter.recordFailure(request.email());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
@@ -157,9 +157,9 @@ public class AuthService implements UserDetailsService {
             return userRepository.save(newUser);
         });
         if (!isNew[0]) {
-            // Ensure any existing account (e.g. registered locally but unverified) is upgraded
+            // Google has verified this email is theirs — mark it verified, but don't touch
+            // authProvider: it's not exclusive, a password (if any) must keep working too.
             user.setEmailVerified(true);
-            user.setAuthProvider(AuthProvider.GOOGLE);
             userRepository.save(user);
         }
         return new AuthResponse(jwtUtil.generateToken(user.getEmail()), user.getEmail(), user.getName(), isNew[0]);
@@ -182,9 +182,11 @@ public class AuthService implements UserDetailsService {
 
         Optional<User> byEmail = userRepository.findByEmail(claims.email());
         if (byEmail.isPresent()) {
-            // Existing user — link Apple ID for future logins
+            // Existing user — link Apple ID for future logins. Apple has verified this email
+            // is theirs, but don't touch authProvider: a password (if any) must keep working too.
             User user = byEmail.get();
             user.setAppleUserId(claims.sub());
+            user.setEmailVerified(true);
             userRepository.save(user);
             return new AuthResponse(jwtUtil.generateToken(user.getEmail()), user.getEmail(), user.getName(), false);
         }
@@ -205,11 +207,8 @@ public class AuthService implements UserDetailsService {
     public MessageResponse forgotPassword(PasswordResetRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account found with that email address"));
-        if (user.getAuthProvider() != AuthProvider.LOCAL) {
-            String provider = user.getAuthProvider() == AuthProvider.GOOGLE ? "Google" : "Apple";
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "This account uses " + provider + " Sign-In. Please log in with " + provider + " instead.");
-        }
+        // Allowed even for Google/Apple-only accounts — this doubles as "add a password"
+        // so any linked sign-in method keeps working going forward.
         String token = UUID.randomUUID().toString();
         user.setResetToken(token);
         user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
