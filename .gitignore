@@ -29,3 +29,6 @@ application-local.properties
 
 # Maven build output (never commit)
 /target/
+
+# User-uploaded files (never commit)
+/uploads/
