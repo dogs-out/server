@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         // /ws authenticates itself via JWT in the handshake interceptor
-                        .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws").permitAll()
+                        .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
