@@ -259,8 +259,10 @@ public class AuthService implements UserDetailsService {
         params.add("code", code);
         params.add("client_id", clientId);
         // iOS/Android native clients are public clients — PKCE replaces the secret.
-        // Web clients are confidential and require the client secret.
-        boolean isNativeClient = redirectUri.startsWith("com.googleusercontent.apps");
+        // Web clients are confidential and require the client secret. Native redirects
+        // use custom schemes (iOS: reverse client ID, Android: package name), so anything
+        // that isn't http(s) is a native client.
+        boolean isNativeClient = !redirectUri.startsWith("http");
         if (!isNativeClient) {
             params.add("client_secret", googleClientSecret);
         }
