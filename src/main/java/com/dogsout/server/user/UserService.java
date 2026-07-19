@@ -102,6 +102,23 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public void reorderPhotos(String email, List<Long> photoIds) {
+        User user = findUser(email);
+        List<UserPhoto> photos = userPhotoRepository.findByUserOrderBySortOrderAsc(user);
+        List<Long> ownedIds = photos.stream().map(UserPhoto::getId).toList();
+        if (photoIds.size() != ownedIds.size() || !ownedIds.containsAll(photoIds)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "photoIds must contain exactly your photo ids");
+        }
+        for (UserPhoto photo : photos) {
+            photo.setSortOrder(photoIds.indexOf(photo.getId()));
+            if (photo.getSortOrder() == 0) {
+                user.setProfilePicture(photo.getImageData());
+            }
+        }
+        userPhotoRepository.saveAll(photos);
+        userRepository.save(user);
+    }
+
     public void setPushToken(String email, String token) {
         User user = findUser(email);
         user.setExpoPushToken(token == null || token.isBlank() ? null : token);

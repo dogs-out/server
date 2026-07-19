@@ -71,4 +71,10 @@ public class UserController {
         userService.deletePhoto(auth.getName(), photoId);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/me/photos/order")
+    public ResponseEntity<Void> reorderPhotos(Authentication auth, @Valid @RequestBody ReorderPhotosRequest request) {
+        userService.reorderPhotos(auth.getName(), request.photoIds());
+        return ResponseEntity.noContent().build();
+    }
 }

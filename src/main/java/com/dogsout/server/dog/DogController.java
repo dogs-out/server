@@ -64,4 +64,14 @@ public class DogController {
         dogService.deletePhoto(auth.getName(), id, photoId);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/photos/order")
+    public ResponseEntity<Void> reorderPhotos(
+            Authentication auth,
+            @PathVariable Long id,
+            @Valid @RequestBody ReorderPhotosRequest request
+    ) {
+        dogService.reorderPhotos(auth.getName(), id, request.photoIds());
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -89,6 +89,24 @@ public class DogService {
         dogRepository.save(dog);
     }
 
+    public void reorderPhotos(String email, Long dogId, List<Long> photoIds) {
+        Dog dog = findDog(dogId);
+        assertOwner(email, dog);
+        List<DogPhoto> photos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
+        List<Long> ownedIds = photos.stream().map(DogPhoto::getId).toList();
+        if (photoIds.size() != ownedIds.size() || !ownedIds.containsAll(photoIds)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "photoIds must contain exactly this dog's photo ids");
+        }
+        for (DogPhoto photo : photos) {
+            photo.setSortOrder(photoIds.indexOf(photo.getId()));
+            if (photo.getSortOrder() == 0) {
+                dog.setProfilePicture(photo.getImageData());
+            }
+        }
+        dogPhotoRepository.saveAll(photos);
+        dogRepository.save(dog);
+    }
+
     private void checkProfanity(String name, String bio) {
         if (profanityFilter.containsProfanity(name))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your dog's name contains inappropriate language.");
