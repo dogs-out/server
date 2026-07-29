@@ -32,6 +32,7 @@ public class UserService {
     private final MessageRepository messageRepository;
     private final MatchRepository matchRepository;
     private final BlockRepository blockRepository;
+    private final com.dogsout.server.playdate.PlaydateService playdateService;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -142,6 +143,7 @@ public class UserService {
 
     public void deleteAccount(String email) {
         User user = findUser(email);
+        playdateService.deleteAllForUser(user);
         // Messages reference matches, so they must go first
         messageRepository.deleteBySenderOrReceiver(user, user);
         matchRepository.deleteByUser1OrUser2(user, user);
