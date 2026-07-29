@@ -71,6 +71,20 @@ public class User {
 
     private String relationshipStatus;
 
+    // Dogsitting — null means "not set": hasDog defaults to true (legacy users
+    // all went through dog onboarding), the sitter flags default to false.
+    private Boolean hasDog;
+    private Boolean isSitter;
+    private Boolean lookingForSitter;
+
+    @Column(columnDefinition = "TEXT")
+    private String sitterWeekdays;
+
+    private Integer sitterExperienceYears;
+
+    @Column(columnDefinition = "TEXT")
+    private String sitterTags;
+
     private Integer maxDistanceKm;
     private Integer minAge;
     private Integer maxAge;

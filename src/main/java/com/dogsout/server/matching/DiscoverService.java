@@ -43,6 +43,11 @@ public class DiscoverService {
         User me = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        // Discover is for dog owners; sitter-only accounts use the seeker pool instead
+        if (Boolean.FALSE.equals(me.getHasDog())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Add a dog to use Discover");
+        }
+
         // Exclude users I swiped on AND users already matched with me (where I'm user2)
         java.util.Set<Long> excluded = new java.util.HashSet<>(matchRepository.findSwipedUserIdsByUser1Id(me.getId()));
         excluded.addAll(matchRepository.findMatchedUserIdsByUser2Id(me.getId()));
@@ -62,6 +67,30 @@ public class DiscoverService {
                         && calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()) <= maxDist))
                 .filter(u -> passesAgeFilter(u, me.getMinAge(), me.getMaxAge()))
                 .filter(u -> passesDogAgeFilter(u, me.getMinDogAge(), me.getMaxDogAge()))
+                .map(u -> toDiscoverProfile(u, me))
+                .sorted((a, b) -> Double.compare(
+                        a.distanceKm() < 0 ? Double.MAX_VALUE : a.distanceKm(),
+                        b.distanceKm() < 0 ? Double.MAX_VALUE : b.distanceKm()))
+                .toList();
+    }
+
+    public List<DiscoverProfile> getSeekerPool(String email) {
+        User me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        java.util.Set<Long> excluded = new java.util.HashSet<>(blockRepository.findBlockedIdsByBlockerId(me.getId()));
+        excluded.addAll(blockRepository.findBlockerIdsByBlockedId(me.getId()));
+
+        boolean hasLocation = me.getLatitude() != null && me.getLongitude() != null;
+        double maxDist = me.getMaxDistanceKm() != null ? me.getMaxDistanceKm() : MAX_DISTANCE_KM;
+        boolean distFilterOn = hasLocation;
+
+        return userRepository.findAll().stream()
+                .filter(u -> Boolean.TRUE.equals(u.getLookingForSitter()))
+                .filter(u -> !u.getId().equals(me.getId()))
+                .filter(u -> !excluded.contains(u.getId()))
+                .filter(u -> !distFilterOn || (u.getLatitude() != null && u.getLongitude() != null
+                        && calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()) <= maxDist))
                 .map(u -> toDiscoverProfile(u, me))
                 .sorted((a, b) -> Double.compare(
                         a.distanceKm() < 0 ? Double.MAX_VALUE : a.distanceKm(),
@@ -116,6 +145,8 @@ public class DiscoverService {
         String relationshipStatus = "Prefer not to say".equals(u.getRelationshipStatus())
                 ? null : u.getRelationshipStatus();
 
+        boolean isSitter = Boolean.TRUE.equals(u.getIsSitter());
+
         return new DiscoverProfile(
                 u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
                 userPhotos,
@@ -123,7 +154,12 @@ public class DiscoverService {
                 u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split("\\|\\|")) : List.of(),
                 relationshipStatus,
                 dogs,
-                distance
+                distance,
+                isSitter,
+                isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split("\\|\\|")) : List.of(),
+                isSitter ? u.getSitterExperienceYears() : null,
+                isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split("\\|\\|")) : List.of(),
+                Boolean.TRUE.equals(u.getLookingForSitter())
         );
     }
 
@@ -138,15 +174,7 @@ public class DiscoverService {
         });
     }
 
-    private static final double EARTH_RADIUS = 6371.0;
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        double la1 = Math.toRadians(lat1);
-        double la2 = Math.toRadians(lat2);
-        double lo1 = Math.toRadians(lon1);
-        double lo2 = Math.toRadians(lon2);
-        double a = (Math.sin((la2-la1)/2)*Math.sin((la2-la1)/2) + Math.cos(la1) * Math.cos(la2) * Math.sin((lo2-lo1)/2)*Math.sin((lo2-lo1)/2));
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - Math.min(1.0, a)));
-        return EARTH_RADIUS * c;
-
+        return com.dogsout.server.GeoUtil.distanceKm(lat1, lon1, lat2, lon2);
     }
 }

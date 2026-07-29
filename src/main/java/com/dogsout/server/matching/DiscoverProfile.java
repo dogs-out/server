@@ -16,5 +16,10 @@ public record DiscoverProfile(
         List<String> personalityTags,
         String relationshipStatus,
         List<DogResponse> dogs,
-        double distanceKm
+        double distanceKm,
+        boolean isSitter,
+        List<String> sitterWeekdays,
+        Integer sitterExperienceYears,
+        List<String> sitterTags,
+        boolean lookingForSitter
 ) {}

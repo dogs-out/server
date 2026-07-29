@@ -2,6 +2,8 @@ package com.dogsout.server.user;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -20,6 +22,12 @@ public record UpdateProfileRequest(
         List<String> lifestyleTags,
         List<String> personalityTags,
         String relationshipStatus,
+        Boolean hasDog,
+        Boolean isSitter,
+        Boolean lookingForSitter,
+        List<String> sitterWeekdays,
+        @Min(0) @Max(10) Integer sitterExperienceYears,
+        List<String> sitterTags,
         Integer maxDistanceKm,
         Integer minAge,
         Integer maxAge,

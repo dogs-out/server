@@ -28,6 +28,10 @@ public class DogService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You can add a maximum of 3 dogs.");
         }
         checkProfanity(request.name(), request.bio());
+        if (Boolean.FALSE.equals(owner.getHasDog())) {
+            owner.setHasDog(true);
+            userRepository.save(owner);
+        }
         Dog dog = new Dog();
         applyRequest(dog, request);
         dog.setOwner(owner);
