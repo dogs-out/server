@@ -43,7 +43,10 @@ public class DiscoverService {
         User me = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // Discover is for dog owners; sitter-only accounts use the seeker pool instead
+        // Discover is for dog owners; sitter-only accounts use the seeker pool instead.
+        // This rule is symmetric — see the hasDog/dogs filters below, which keep dogless
+        // accounts *out* of everyone else's feed too. Enforcing only this half let
+        // sitter-only profiles surface as swipe cards.
         if (Boolean.FALSE.equals(me.getHasDog())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Add a dog to use Discover");
         }
@@ -63,11 +66,17 @@ public class DiscoverService {
         return userRepository.findAll().stream()
                 .filter(u -> !u.getId().equals(me.getId()))
                 .filter(u -> !excluded.contains(u.getId()))
+                // No dog, no Discover — in both directions. `null` counts as an owner
+                // (legacy rows predate the flag).
+                .filter(u -> !Boolean.FALSE.equals(u.getHasDog()))
                 .filter(u -> !distFilterOn || (u.getLatitude() != null && u.getLongitude() != null
                         && calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()) <= maxDist))
                 .filter(u -> passesAgeFilter(u, me.getMinAge(), me.getMaxAge()))
                 .filter(u -> passesDogAgeFilter(u, me.getMinDogAge(), me.getMaxDogAge()))
                 .map(u -> toDiscoverProfile(u, me))
+                // The flag can disagree with reality (set true, no dog added yet), and a
+                // swipe card with no dog on it is broken either way.
+                .filter(p -> !p.dogs().isEmpty())
                 .sorted((a, b) -> Double.compare(
                         a.distanceKm() < 0 ? Double.MAX_VALUE : a.distanceKm(),
                         b.distanceKm() < 0 ? Double.MAX_VALUE : b.distanceKm()))
@@ -79,8 +88,17 @@ public class DiscoverService {
         return sitterPool(email, u -> Boolean.TRUE.equals(u.getLookingForSitter()));
     }
 
-    /** Users offering to sit — what an owner looking for a sitter browses. */
+    /**
+     * Users offering to sit — visible only to someone actually looking for a sitter.
+     * Sitters publish availability to find work, not to be browsable by everyone, so
+     * this pool is gated on the viewer's own lookingForSitter flag.
+     */
     public List<DiscoverProfile> getSitterPool(String email) {
+        User me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!Boolean.TRUE.equals(me.getLookingForSitter())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"looking for a dogsitter\" to browse sitters");
+        }
         return sitterPool(email, u -> Boolean.TRUE.equals(u.getIsSitter()));
     }
 
