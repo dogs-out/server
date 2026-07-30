@@ -83,29 +83,34 @@ public class DiscoverService {
                 .toList();
     }
 
-    /** Owners advertising that they need a dogsitter — the "jobs" a sitter can pick up. */
+    // Both dogsitting pools are opt-in in both directions: you can't browse one side
+    // until you've joined the other. Someone with neither toggle sees nothing, which
+    // is the point — the lists are for people who've actually opted in.
+
+    /** Owners needing a sitter — the "jobs" side, visible only to sitters. */
     public List<DiscoverProfile> getSeekerPool(String email) {
-        return sitterPool(email, u -> Boolean.TRUE.equals(u.getLookingForSitter()));
+        User me = requireUser(email);
+        if (!Boolean.TRUE.equals(me.getIsSitter())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"I'm a dogsitter\" to browse jobs");
+        }
+        return sitterPool(me, u -> Boolean.TRUE.equals(u.getLookingForSitter()));
     }
 
-    /**
-     * Users offering to sit — visible only to someone actually looking for a sitter.
-     * Sitters publish availability to find work, not to be browsable by everyone, so
-     * this pool is gated on the viewer's own lookingForSitter flag.
-     */
+    /** Sitters offering to sit — visible only to someone looking for a sitter. */
     public List<DiscoverProfile> getSitterPool(String email) {
-        User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User me = requireUser(email);
         if (!Boolean.TRUE.equals(me.getLookingForSitter())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"looking for a dogsitter\" to browse sitters");
         }
-        return sitterPool(email, u -> Boolean.TRUE.equals(u.getIsSitter()));
+        return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter()));
     }
 
-    private List<DiscoverProfile> sitterPool(String email, java.util.function.Predicate<User> role) {
-        User me = userRepository.findByEmail(email)
+    private User requireUser(String email) {
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
 
+    private List<DiscoverProfile> sitterPool(User me, java.util.function.Predicate<User> role) {
         java.util.Set<Long> excluded = new java.util.HashSet<>(blockRepository.findBlockedIdsByBlockerId(me.getId()));
         excluded.addAll(blockRepository.findBlockerIdsByBlockedId(me.getId()));
 
