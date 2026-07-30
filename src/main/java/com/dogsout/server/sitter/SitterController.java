@@ -27,6 +27,11 @@ public class SitterController {
         return ResponseEntity.ok(discoverService.getSeekerPool(auth.getName()));
     }
 
+    @GetMapping("/available")
+    public ResponseEntity<List<DiscoverProfile>> getAvailableSitters(Authentication auth) {
+        return ResponseEntity.ok(discoverService.getSitterPool(auth.getName()));
+    }
+
     @PostMapping("/contact")
     public ResponseEntity<ContactSitterResponse> contact(Authentication auth,
                                                          @Valid @RequestBody ContactSitterRequest request) {

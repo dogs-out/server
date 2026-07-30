@@ -29,9 +29,11 @@ public class SitterService {
     private final PushNotificationService pushNotificationService;
 
     /**
-     * A sitter contacting an owner opens a chat immediately: the owner opted into the
-     * seeker pool, so no mutual like is required. Chat is authorised through MATCHED
-     * matches, so this finds-or-creates a Match row with that status.
+     * Dogsitting contact opens a chat immediately in either direction — a sitter
+     * reaching an owner from the seeker pool, or an owner reaching a sitter from the
+     * available-sitters pool. Both sides opted into their pool, so no mutual like is
+     * required. Chat is authorised through MATCHED matches, so this finds-or-creates
+     * a Match row with that status.
      */
     public ContactSitterResponse contact(String email, Long targetUserId) {
         User me = userRepository.findByEmail(email)
@@ -42,8 +44,8 @@ public class SitterService {
         if (me.getId().equals(target.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot contact yourself");
         }
-        if (!Boolean.TRUE.equals(me.getIsSitter())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only sitters can contact owners");
+        if (!Boolean.TRUE.equals(me.getIsSitter()) && !Boolean.TRUE.equals(me.getLookingForSitter())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Enable a dogsitting role to contact people");
         }
         if (blockRepository.existsBlockBetween(me.getId(), target.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user is not available");
@@ -67,8 +69,14 @@ public class SitterService {
             return new ContactSitterResponse(match.getId());
         }
 
-        if (!Boolean.TRUE.equals(target.getLookingForSitter())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This user is not looking for a sitter");
+        // Checked only before opening a *new* chat: an existing match stays reachable
+        // even if the other side has since switched their dogsitting toggles off.
+        boolean sitterToOwner = Boolean.TRUE.equals(me.getIsSitter())
+                && Boolean.TRUE.equals(target.getLookingForSitter());
+        boolean ownerToSitter = Boolean.TRUE.equals(me.getLookingForSitter())
+                && Boolean.TRUE.equals(target.getIsSitter());
+        if (!sitterToOwner && !ownerToSitter) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This user is not available for dogsitting");
         }
 
         Match match = new Match();
