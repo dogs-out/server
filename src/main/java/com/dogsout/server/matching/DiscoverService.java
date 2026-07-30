@@ -74,7 +74,17 @@ public class DiscoverService {
                 .toList();
     }
 
+    /** Owners advertising that they need a dogsitter — the "jobs" a sitter can pick up. */
     public List<DiscoverProfile> getSeekerPool(String email) {
+        return sitterPool(email, u -> Boolean.TRUE.equals(u.getLookingForSitter()));
+    }
+
+    /** Users offering to sit — what an owner looking for a sitter browses. */
+    public List<DiscoverProfile> getSitterPool(String email) {
+        return sitterPool(email, u -> Boolean.TRUE.equals(u.getIsSitter()));
+    }
+
+    private List<DiscoverProfile> sitterPool(String email, java.util.function.Predicate<User> role) {
         User me = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -86,7 +96,7 @@ public class DiscoverService {
         boolean distFilterOn = hasLocation;
 
         return userRepository.findAll().stream()
-                .filter(u -> Boolean.TRUE.equals(u.getLookingForSitter()))
+                .filter(role)
                 .filter(u -> !u.getId().equals(me.getId()))
                 .filter(u -> !excluded.contains(u.getId()))
                 .filter(u -> !distFilterOn || (u.getLatitude() != null && u.getLongitude() != null
