@@ -9,6 +9,8 @@ public interface PlaydateMessageRepository extends JpaRepository<PlaydateMessage
 
     List<PlaydateMessage> findByPlaydateOrderBySentAtAsc(Playdate playdate);
 
+    java.util.Optional<PlaydateMessage> findFirstByPlaydateOrderBySentAtDesc(Playdate playdate);
+
     void deleteByPlaydate(Playdate playdate);
 
     void deleteBySender(User sender);
