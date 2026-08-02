@@ -22,6 +22,9 @@ import java.util.List;
 public class DiscoverService {
 
     private static final double MAX_DISTANCE_KM = 50.0;
+    private static final String USER_NOT_FOUND = "User not found";
+    /** Tag columns store multiple values joined by "||"; this is the split regex. */
+    private static final String TAG_SPLIT_REGEX = "\\|\\|";
 
     private boolean passesAgeFilter(User u, Integer minAge, Integer maxAge) {
         if (minAge == null && maxAge == null) return true;
@@ -41,7 +44,7 @@ public class DiscoverService {
 
     public List<DiscoverProfile> getDiscoverFeed(String email) {
         User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
 
         // Discover is for dog owners; sitter-only accounts use the seeker pool instead.
         // This rule is symmetric — see the hasDog/dogs filters below, which keep dogless
@@ -107,7 +110,7 @@ public class DiscoverService {
 
     private User requireUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
     }
 
     private List<DiscoverProfile> sitterPool(User me, java.util.function.Predicate<User> role) {
@@ -133,12 +136,12 @@ public class DiscoverService {
 
     public DiscoverProfile getProfile(String email, Long userId) {
         User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         User target = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         // A blocked user's profile behaves as if it no longer exists
         if (blockRepository.existsBlockBetween(me.getId(), target.getId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND);
         }
         return toDiscoverProfile(target, me);
     }
@@ -162,9 +165,9 @@ public class DiscoverService {
                             u.getId(), u.getName(), u.getProfilePicture(),
                             dog.getCreatedAt(),
                             dog.getEnergyLevel(), dog.getSocialBehavior(),
-                            dog.getLoves() != null ? Arrays.asList(dog.getLoves().split("\\|\\|")) : List.of(),
+                            dog.getLoves() != null ? Arrays.asList(dog.getLoves().split(TAG_SPLIT_REGEX)) : List.of(),
                             dog.getOffLeash(), dog.getKidsComfort(),
-                            dog.getTags() != null ? Arrays.asList(dog.getTags().split("\\|\\|")) : List.of(),
+                            dog.getTags() != null ? Arrays.asList(dog.getTags().split(TAG_SPLIT_REGEX)) : List.of(),
                             dogPhotos
                     );
                 })
@@ -183,15 +186,15 @@ public class DiscoverService {
         return new DiscoverProfile(
                 u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
                 userPhotos,
-                u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split("\\|\\|")) : List.of(),
-                u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split("\\|\\|")) : List.of(),
+                u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split(TAG_SPLIT_REGEX)) : List.of(),
+                u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 relationshipStatus,
                 dogs,
                 distance,
                 isSitter,
-                isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split("\\|\\|")) : List.of(),
+                isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 isSitter ? u.getSitterExperienceYears() : null,
-                isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split("\\|\\|")) : List.of(),
+                isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter())
         );
     }

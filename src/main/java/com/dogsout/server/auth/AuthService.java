@@ -50,6 +50,8 @@ public class AuthService implements UserDetailsService {
     private final RateLimiter rateLimiter;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    /** Claim/field name for the address returned by Google and Apple token endpoints. */
+    private static final String EMAIL_CLAIM = "email";
 
     @Value("${google.client-id}")
     private String googleClientId;
@@ -292,10 +294,10 @@ public class AuthService implements UserDetailsService {
                     "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken,
                     Map.class
             );
-            if (response == null || !response.containsKey("email")) {
+            if (response == null || !response.containsKey(EMAIL_CLAIM)) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
             }
-            return response.get("email");
+            return response.get(EMAIL_CLAIM);
         } catch (HttpClientErrorException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Google token");
         }
@@ -341,7 +343,7 @@ public class AuthService implements UserDetailsService {
                 }
             }
 
-            return new AppleTokenClaims(claims.getSubject(), claims.get("email", String.class));
+            return new AppleTokenClaims(claims.getSubject(), claims.get(EMAIL_CLAIM, String.class));
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {

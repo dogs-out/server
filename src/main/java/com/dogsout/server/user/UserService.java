@@ -23,6 +23,9 @@ import com.dogsout.server.user.AuthProvider;
 @RequiredArgsConstructor
 public class UserService {
 
+    /** Tag columns store multiple values joined by "||"; this is the split regex. */
+    private static final String TAG_SPLIT_REGEX = "\\|\\|";
+
     private final UserRepository userRepository;
     private final UserPhotoRepository userPhotoRepository;
     private final DogRepository dogRepository;
@@ -174,15 +177,15 @@ public class UserService {
                 user.getLongitude(),
                 user.getRole() != null ? user.getRole().name() : null,
                 user.getAuthProvider() != null ? user.getAuthProvider().name() : null,
-                user.getLifestyleTags() != null ? Arrays.asList(user.getLifestyleTags().split("\\|\\|")) : List.of(),
-                user.getPersonalityTags() != null ? Arrays.asList(user.getPersonalityTags().split("\\|\\|")) : List.of(),
+                user.getLifestyleTags() != null ? Arrays.asList(user.getLifestyleTags().split(TAG_SPLIT_REGEX)) : List.of(),
+                user.getPersonalityTags() != null ? Arrays.asList(user.getPersonalityTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 user.getRelationshipStatus(),
                 !Boolean.FALSE.equals(user.getHasDog()),
                 Boolean.TRUE.equals(user.getIsSitter()),
                 Boolean.TRUE.equals(user.getLookingForSitter()),
-                user.getSitterWeekdays() != null ? Arrays.asList(user.getSitterWeekdays().split("\\|\\|")) : List.of(),
+                user.getSitterWeekdays() != null ? Arrays.asList(user.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 user.getSitterExperienceYears(),
-                user.getSitterTags() != null ? Arrays.asList(user.getSitterTags().split("\\|\\|")) : List.of(),
+                user.getSitterTags() != null ? Arrays.asList(user.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 user.getCreatedAt(),
                 photos,
                 user.getMaxDistanceKm(),

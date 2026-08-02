@@ -23,6 +23,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ModerationService {
 
+    private static final String USER_NOT_FOUND = "User not found";
+
     private static final DateTimeFormatter TRANSCRIPT_TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Europe/Zurich"));
 
@@ -38,7 +40,7 @@ public class ModerationService {
     public void blockUser(String email, Long targetUserId) {
         User me = findUser(email);
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         if (me.getId().equals(target.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot block yourself");
         }
@@ -54,7 +56,7 @@ public class ModerationService {
     public void unblockUser(String email, Long targetUserId) {
         User me = findUser(email);
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         blockRepository.findByBlockerAndBlocked(me, target).ifPresent(blockRepository::delete);
     }
 
@@ -132,6 +134,6 @@ public class ModerationService {
 
     private User findUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
     }
 }
