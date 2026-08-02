@@ -223,7 +223,10 @@ public class AuthService implements UserDetailsService {
         try {
             emailService.sendPasswordResetEmail(user.getEmail(), token);
         } catch (Exception e) {
-            log.warn("[DEV] Password reset token for {}: {} (send failed: {})", user.getEmail(), token, e.getMessage());
+            // Never log the token itself: it is a live credential valid for an hour,
+            // and Railway retains logs, so a mail outage would put working reset
+            // tokens in them. The address is enough to act on the failure.
+            log.warn("Password reset email failed for {}: {}", user.getEmail(), e.getMessage());
         }
         return new MessageResponse("A password reset code has been sent to your email.");
     }
@@ -246,7 +249,8 @@ public class AuthService implements UserDetailsService {
         try {
             emailService.sendVerificationEmail(email, code);
         } catch (Exception e) {
-            log.warn("[DEV] Verification code for {}: {} (send failed: {})", email, code, e.getMessage());
+            // Same reasoning as the reset token — the code is a live credential.
+            log.warn("Verification email failed for {}: {}", email, e.getMessage());
         }
     }
 
