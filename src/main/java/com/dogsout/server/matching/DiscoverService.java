@@ -22,14 +22,16 @@ import java.util.List;
 public class DiscoverService {
 
     private static final double MAX_DISTANCE_KM = 50.0;
+    private static final String USER_NOT_FOUND = "User not found";
+    /** Tag columns store multiple values joined by "||"; this is the split regex. */
+    private static final String TAG_SPLIT_REGEX = "\\|\\|";
 
     private boolean passesAgeFilter(User u, Integer minAge, Integer maxAge) {
         if (minAge == null && maxAge == null) return true;
         if (u.getDateOfBirth() == null) return true;
-        int age = (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
+        int age = (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
         if (minAge != null && age < minAge) return false;
-        if (maxAge != null && age > maxAge) return false;
-        return true;
+        return maxAge == null || age <= maxAge;
     }
 
     private final UserRepository userRepository;
@@ -41,7 +43,7 @@ public class DiscoverService {
 
     public List<DiscoverProfile> getDiscoverFeed(String email) {
         User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
 
         // Discover is for dog owners; sitter-only accounts use the seeker pool instead.
         // This rule is symmetric — see the hasDog/dogs filters below, which keep dogless
@@ -107,7 +109,7 @@ public class DiscoverService {
 
     private User requireUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
     }
 
     private List<DiscoverProfile> sitterPool(User me, java.util.function.Predicate<User> role) {
@@ -133,12 +135,12 @@ public class DiscoverService {
 
     public DiscoverProfile getProfile(String email, Long userId) {
         User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         User target = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
         // A blocked user's profile behaves as if it no longer exists
         if (blockRepository.existsBlockBetween(me.getId(), target.getId())) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND);
         }
         return toDiscoverProfile(target, me);
     }
@@ -162,9 +164,9 @@ public class DiscoverService {
                             u.getId(), u.getName(), u.getProfilePicture(),
                             dog.getCreatedAt(),
                             dog.getEnergyLevel(), dog.getSocialBehavior(),
-                            dog.getLoves() != null ? Arrays.asList(dog.getLoves().split("\\|\\|")) : List.of(),
+                            dog.getLoves() != null ? Arrays.asList(dog.getLoves().split(TAG_SPLIT_REGEX)) : List.of(),
                             dog.getOffLeash(), dog.getKidsComfort(),
-                            dog.getTags() != null ? Arrays.asList(dog.getTags().split("\\|\\|")) : List.of(),
+                            dog.getTags() != null ? Arrays.asList(dog.getTags().split(TAG_SPLIT_REGEX)) : List.of(),
                             dogPhotos
                     );
                 })
@@ -172,7 +174,7 @@ public class DiscoverService {
 
         // Expose only the computed age, never the exact birth date
         Integer age = u.getDateOfBirth() == null ? null
-                : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
+                : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
 
         // "Prefer not to say" is a request to hide the field from other users, not just leave it blank
         String relationshipStatus = "Prefer not to say".equals(u.getRelationshipStatus())
@@ -183,15 +185,15 @@ public class DiscoverService {
         return new DiscoverProfile(
                 u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
                 userPhotos,
-                u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split("\\|\\|")) : List.of(),
-                u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split("\\|\\|")) : List.of(),
+                u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split(TAG_SPLIT_REGEX)) : List.of(),
+                u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 relationshipStatus,
                 dogs,
                 distance,
                 isSitter,
-                isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split("\\|\\|")) : List.of(),
+                isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 isSitter ? u.getSitterExperienceYears() : null,
-                isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split("\\|\\|")) : List.of(),
+                isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter())
         );
     }
@@ -200,10 +202,9 @@ public class DiscoverService {
         if (minDogAge == null && maxDogAge == null) return true;
         return dogRepository.findByOwner(u).stream().anyMatch(dog -> {
             if (dog.getDateOfBirth() == null) return true;
-            int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dog.getDateOfBirth(), java.time.LocalDate.now());
+            int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dog.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
             if (minDogAge != null && age < minDogAge) return false;
-            if (maxDogAge != null && age > maxDogAge) return false;
-            return true;
+            return maxDogAge == null || age <= maxDogAge;
         });
     }
 

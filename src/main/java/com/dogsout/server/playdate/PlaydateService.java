@@ -31,6 +31,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class PlaydateService {
 
+    /** Push payload key deep-linked on by the client. */
+    private static final String PLAYDATE_ID_KEY = "playdateId";
+
     private static final double DEFAULT_MAX_DISTANCE_KM = 50.0;
     // Group chat stays open a while after the start so people can coordinate at the park
     private static final Duration CHAT_GRACE = Duration.ofHours(6);
@@ -170,7 +173,7 @@ public class PlaydateService {
         if (!chatSocketHandler.isOnline(host.getId())) {
             pushNotificationService.send(host, "New playdate guest 🐾",
                     me.getName() + " joined \"" + displayName(playdate) + "\"",
-                    Map.of("type", "PLAYDATE_JOINED", "playdateId", playdate.getId()));
+                    Map.of("type", "PLAYDATE_JOINED", PLAYDATE_ID_KEY, playdate.getId()));
         }
         return toResponse(playdate, me, true);
     }
@@ -214,7 +217,7 @@ public class PlaydateService {
             chatSocketHandler.sendToUser(userId, ChatSocketEvent.playdateUpdated(playdate.getId()));
             pushNotificationService.send(invitee, "Playdate invite 🐾",
                     host.getName() + " invited you to \"" + displayName(playdate) + "\"",
-                    Map.of("type", "PLAYDATE_INVITE", "playdateId", playdate.getId()));
+                    Map.of("type", "PLAYDATE_INVITE", PLAYDATE_ID_KEY, playdate.getId()));
         }
     }
 
@@ -257,7 +260,7 @@ public class PlaydateService {
                 String preview = content.length() > 80 ? content.substring(0, 77) + "…" : content;
                 pushNotificationService.send(member, displayName(playdate),
                         me.getName() + ": " + preview,
-                        Map.of("type", "PLAYDATE_MESSAGE", "playdateId", playdate.getId()));
+                        Map.of("type", "PLAYDATE_MESSAGE", PLAYDATE_ID_KEY, playdate.getId()));
             }
         }
         return response;
@@ -381,7 +384,7 @@ public class PlaydateService {
             chatSocketHandler.sendToUser(member.getId(), ChatSocketEvent.playdateUpdated(playdate.getId()));
             if (!chatSocketHandler.isOnline(member.getId())) {
                 pushNotificationService.send(member, title, body,
-                        Map.of("type", pushType, "playdateId", playdate.getId()));
+                        Map.of("type", pushType, PLAYDATE_ID_KEY, playdate.getId()));
             }
         }
     }
