@@ -29,10 +29,9 @@ public class DiscoverService {
     private boolean passesAgeFilter(User u, Integer minAge, Integer maxAge) {
         if (minAge == null && maxAge == null) return true;
         if (u.getDateOfBirth() == null) return true;
-        int age = (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
+        int age = (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
         if (minAge != null && age < minAge) return false;
-        if (maxAge != null && age > maxAge) return false;
-        return true;
+        return maxAge == null || age <= maxAge;
     }
 
     private final UserRepository userRepository;
@@ -175,7 +174,7 @@ public class DiscoverService {
 
         // Expose only the computed age, never the exact birth date
         Integer age = u.getDateOfBirth() == null ? null
-                : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now());
+                : (int) java.time.temporal.ChronoUnit.YEARS.between(u.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
 
         // "Prefer not to say" is a request to hide the field from other users, not just leave it blank
         String relationshipStatus = "Prefer not to say".equals(u.getRelationshipStatus())
@@ -203,10 +202,9 @@ public class DiscoverService {
         if (minDogAge == null && maxDogAge == null) return true;
         return dogRepository.findByOwner(u).stream().anyMatch(dog -> {
             if (dog.getDateOfBirth() == null) return true;
-            int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dog.getDateOfBirth(), java.time.LocalDate.now());
+            int age = (int) java.time.temporal.ChronoUnit.YEARS.between(dog.getDateOfBirth(), java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
             if (minDogAge != null && age < minDogAge) return false;
-            if (maxDogAge != null && age > maxDogAge) return false;
-            return true;
+            return maxDogAge == null || age <= maxDogAge;
         });
     }
 

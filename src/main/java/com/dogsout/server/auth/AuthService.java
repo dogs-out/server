@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +32,7 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,7 @@ import java.util.UUID;
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService implements UserDetailsService {
 
     private final UserRepository userRepository;
@@ -111,7 +114,7 @@ public class AuthService implements UserDetailsService {
         if (!request.code().equals(user.getVerificationCode())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification code");
         }
-        if (user.getVerificationCodeExpiry() == null || LocalDateTime.now().isAfter(user.getVerificationCodeExpiry())) {
+        if (user.getVerificationCodeExpiry() == null || LocalDateTime.now(ZoneId.systemDefault()).isAfter(user.getVerificationCodeExpiry())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification code has expired");
         }
         user.setEmailVerified(true);
@@ -215,12 +218,12 @@ public class AuthService implements UserDetailsService {
         // so any linked sign-in method keeps working going forward.
         String token = UUID.randomUUID().toString();
         user.setResetToken(token);
-        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
+        user.setResetTokenExpiry(LocalDateTime.now(ZoneId.systemDefault()).plusHours(1));
         userRepository.save(user);
         try {
             emailService.sendPasswordResetEmail(user.getEmail(), token);
         } catch (Exception e) {
-            System.err.printf("[DEV] Password reset token for %s: %s (send failed: %s)%n", user.getEmail(), token, e.getMessage());
+            log.warn("[DEV] Password reset token for {}: {} (send failed: {})", user.getEmail(), token, e.getMessage());
         }
         return new MessageResponse("A password reset code has been sent to your email.");
     }
@@ -228,7 +231,7 @@ public class AuthService implements UserDetailsService {
     public MessageResponse resetPassword(ResetPasswordRequest request) {
         User user = userRepository.findByResetToken(request.token())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset token"));
-        if (user.getResetTokenExpiry() == null || LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
+        if (user.getResetTokenExpiry() == null || LocalDateTime.now(ZoneId.systemDefault()).isAfter(user.getResetTokenExpiry())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired reset token");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
@@ -243,13 +246,13 @@ public class AuthService implements UserDetailsService {
         try {
             emailService.sendVerificationEmail(email, code);
         } catch (Exception e) {
-            System.err.printf("[DEV] Verification code for %s: %s (send failed: %s)%n", email, code, e.getMessage());
+            log.warn("[DEV] Verification code for {}: {} (send failed: {})", email, code, e.getMessage());
         }
     }
 
     private void assignVerificationCode(User user) {
         user.setVerificationCode(String.format("%06d", SECURE_RANDOM.nextInt(1_000_000)));
-        user.setVerificationCodeExpiry(LocalDateTime.now().plusMinutes(15));
+        user.setVerificationCodeExpiry(LocalDateTime.now(ZoneId.systemDefault()).plusMinutes(15));
     }
 
     @SuppressWarnings("unchecked")
