@@ -440,6 +440,12 @@ public class PlaydateService {
                     .forEach(participantResponses::add);
         }
 
+        // Only members get a preview — a PUBLIC playdate you haven't joined shouldn't
+        // leak its chat into your list.
+        PlaydateMessage lastMessage = ("HOST".equals(myStatus) || "JOINED".equals(myStatus))
+                ? messageRepository.findFirstByPlaydateOrderBySentAtDesc(playdate).orElse(null)
+                : null;
+
         return new PlaydateResponse(
                 playdate.getId(),
                 playdate.getHost().getId(),
@@ -457,7 +463,9 @@ public class PlaydateService {
                 playdate.getStatus().name(),
                 joinedCount,
                 myStatus,
-                participantResponses
+                participantResponses,
+                lastMessage != null ? lastMessage.getContent() : null,
+                lastMessage != null ? lastMessage.getSentAt() : null
         );
     }
 

@@ -61,7 +61,11 @@ public final class PlaydateDtos {
             String status,
             int joinedCount,
             String myStatus, // HOST | JOINED | INVITED | NONE
-            List<ParticipantResponse> participants
+            List<ParticipantResponse> participants,
+            // Preview for the group-chat row on the Chats screen. No unread count —
+            // playdate chats deliberately have no read tracking in v1.
+            String lastMessageContent,
+            Instant lastMessageSentAt
     ) {}
 
     public record PlaydateMessageResponse(
