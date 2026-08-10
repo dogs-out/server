@@ -6,6 +6,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -13,6 +15,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -33,8 +36,16 @@ public class ImageProcessor {
     /** Refuse anything larger before decoding: a decoded pixel buffer is ~4 bytes/px. */
     private static final int MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
-    /** Guards against decompression bombs — 50 MP is far beyond any phone camera. */
-    private static final long MAX_PIXELS = 50_000_000L;
+    /**
+     * Largest image accepted, checked from the header before any pixels are decoded.
+     *
+     * <p>25 MP is a 100 MB pixel buffer. The production JVM runs with {@code -Xmx400m},
+     * so this cannot be raised much without a single upload being able to OOM the
+     * server for everyone — and the endpoint is reachable by any signed-in user. It is
+     * far above anything the app itself sends, since the client downscales to 2160px
+     * (~4.6 MP) before uploading.
+     */
+    private static final long MAX_PIXELS = 25_000_000L;
 
     /**
      * Decodes {@code source} once and renders every rendition from it.
@@ -49,11 +60,7 @@ public class ImageProcessor {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Image is too large");
         }
 
-        BufferedImage decoded = decode(source);
-        if ((long) decoded.getWidth() * decoded.getHeight() > MAX_PIXELS) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Image resolution is too large");
-        }
-        decoded = flattenTransparency(decoded);
+        BufferedImage decoded = flattenTransparency(decode(source));
 
         Map<PhotoRendition, byte[]> out = new EnumMap<>(PhotoRendition.class);
         for (PhotoRendition rendition : PhotoRendition.values()) {
@@ -85,16 +92,39 @@ public class ImageProcessor {
         return stripped.length < rendered.length ? stripped : rendered;
     }
 
+    /**
+     * Decodes the image, reading its dimensions from the header first.
+     *
+     * <p>The size check has to happen before any pixels are read. {@code ImageIO.read}
+     * allocates the whole pixel buffer up front, so checking the dimensions of the
+     * decoded result is too late to prevent the allocation it is meant to prevent — a
+     * 100 MP image would already have taken 400 MB of heap, the JVM's entire budget.
+     */
     private BufferedImage decode(byte[] source) {
-        try (ByteArrayInputStream in = new ByteArrayInputStream(source)) {
-            BufferedImage image = ImageIO.read(in);
-            if (image == null) {
-                // ImageIO returns null (rather than throwing) when no reader matches,
-                // which is the case for HEIC. The client transcodes to JPEG before
+        try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+            if (!readers.hasNext()) {
+                // ImageIO has no reader for HEIC. The client transcodes to JPEG before
                 // upload, so this is a malformed or unsupported upload.
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported image format");
             }
-            return image;
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(in);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if ((long) width * height > MAX_PIXELS) {
+                    throw new ResponseStatusException(
+                            HttpStatus.PAYLOAD_TOO_LARGE, "Image resolution is too large");
+                }
+                // Decoded at full resolution: at the 25 MP ceiling that is a 100 MB
+                // buffer, one image at a time, which the heap absorbs. Subsampling
+                // during decode would cut that further but costs visible quality, and
+                // photos are the product here.
+                return reader.read(0, reader.getDefaultReadParam());
+            } finally {
+                reader.dispose();
+            }
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read image", e);
         }
