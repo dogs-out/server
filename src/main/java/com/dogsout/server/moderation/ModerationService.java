@@ -5,6 +5,8 @@ import com.dogsout.server.chat.Message;
 import com.dogsout.server.chat.MessageRepository;
 import com.dogsout.server.matching.Match;
 import com.dogsout.server.matching.MatchRepository;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.User;
 import com.dogsout.server.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class ModerationService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final PhotoService photoService;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -67,7 +70,7 @@ public class ModerationService {
                 .map(b -> new BlockedUserResponse(
                         b.getBlocked().getId(),
                         b.getBlocked().getName(),
-                        b.getBlocked().getProfilePicture(),
+                        photoService.url(b.getBlocked().getProfilePictureKey(), PhotoRendition.THUMB),
                         b.getCreatedAt()))
                 .toList();
     }

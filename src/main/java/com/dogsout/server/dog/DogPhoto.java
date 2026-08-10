@@ -20,14 +20,15 @@ public class DogPhoto {
     @JoinColumn(name = "dog_id")
     private Dog dog;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String imageData;
+    /** Prefix under which this photo's renditions live — see {@code UserPhoto.storageKey}. */
+    @Column(name = "storage_key")
+    private String storageKey;
 
     private Integer sortOrder;
 
-    public DogPhoto(Dog dog, String imageData, Integer sortOrder) {
+    public DogPhoto(Dog dog, String storageKey, Integer sortOrder) {
         this.dog = dog;
-        this.imageData = imageData;
+        this.storageKey = storageKey;
         this.sortOrder = sortOrder;
     }
 }

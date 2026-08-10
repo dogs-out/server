@@ -14,7 +14,8 @@ public record DogRequest(
         @Size(max = 100) String breed,
         LocalDate dateOfBirth,
         @Size(max = 250) String bio,
-        @Size(max = 2_000_000) String profilePicture,
+        // No profilePicture: it is derived from the dog's sortOrder == 0 photo and set
+        // by the photo endpoints, so there is nothing for a client to send here.
         Integer energyLevel,
         String socialBehavior,
         List<String> loves,

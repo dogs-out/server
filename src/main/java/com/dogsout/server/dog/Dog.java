@@ -30,8 +30,9 @@ public class Dog {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    @Column(columnDefinition = "TEXT")
-    private String profilePicture;
+    /** Storage key of this dog's {@code sortOrder == 0} photo — see {@code User.profilePictureKey}. */
+    @Column(name = "profile_picture_key")
+    private String profilePictureKey;
 
     private Integer energyLevel;
     private String socialBehavior;

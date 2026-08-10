@@ -5,6 +5,8 @@ import com.dogsout.server.ProfanityFilter;
 import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.moderation.BlockRepository;
 import com.dogsout.server.notification.PushNotificationService;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.playdate.PlaydateDtos.*;
 import com.dogsout.server.user.User;
 import com.dogsout.server.user.UserRepository;
@@ -47,6 +49,7 @@ public class PlaydateService {
     private final ProfanityFilter profanityFilter;
     private final ChatSocketHandler chatSocketHandler;
     private final PushNotificationService pushNotificationService;
+    private final PhotoService photoService;
 
     // ─── Feed & detail ────────────────────────────────────────────────────────
 
@@ -434,12 +437,12 @@ public class PlaydateService {
             participantResponses = new java.util.ArrayList<>();
             participantResponses.add(new ParticipantResponse(
                     playdate.getHost().getId(), playdate.getHost().getName(),
-                    playdate.getHost().getProfilePicture(), "HOST"));
+                    avatarUrl(playdate.getHost()), "HOST"));
             participants.stream()
                     .sorted(Comparator.comparing(PlaydateParticipant::getCreatedAt,
                             Comparator.nullsLast(Comparator.naturalOrder())))
                     .map(p -> new ParticipantResponse(p.getUser().getId(), p.getUser().getName(),
-                            p.getUser().getProfilePicture(), p.getStatus().name()))
+                            avatarUrl(p.getUser()), p.getStatus().name()))
                     .forEach(participantResponses::add);
         }
 
@@ -453,7 +456,7 @@ public class PlaydateService {
                 playdate.getId(),
                 playdate.getHost().getId(),
                 playdate.getHost().getName(),
-                playdate.getHost().getProfilePicture(),
+                avatarUrl(playdate.getHost()),
                 playdate.getTitle(),
                 playdate.getDescription(),
                 playdate.getParkName(),
@@ -472,12 +475,17 @@ public class PlaydateService {
         );
     }
 
+    /** Avatar URL for a user, or null if they have no photo. */
+    private String avatarUrl(com.dogsout.server.user.User user) {
+        return photoService.url(user.getProfilePictureKey(), PhotoRendition.THUMB);
+    }
+
     private PlaydateMessageResponse toMessageResponse(PlaydateMessage message) {
         return new PlaydateMessageResponse(
                 message.getId(),
                 message.getSender().getId(),
                 message.getSender().getName(),
-                message.getSender().getProfilePicture(),
+                avatarUrl(message.getSender()),
                 message.getContent(),
                 Objects.requireNonNullElseGet(message.getSentAt(), Instant::now)
         );

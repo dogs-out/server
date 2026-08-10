@@ -20,14 +20,24 @@ public class UserPhoto {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String imageData;
+    /**
+     * Prefix under which this photo's renditions live in {@code PhotoStorage},
+     * e.g. {@code photos/user/9f3c…}. Replaced the old {@code imageData} column,
+     * which held the whole image as a base64 data URI — 700 kB a row, and the
+     * reason a 15-profile feed came to 18 MB.
+     *
+     * <p>Nullable rather than NOT NULL: with {@code ddl-auto=update} Hibernate adds
+     * this column to a table that already has rows, and a NOT NULL add would fail
+     * outright. It is null only for a row the migration has not reached yet.
+     */
+    @Column(name = "storage_key")
+    private String storageKey;
 
     private Integer sortOrder;
 
-    public UserPhoto(User user, String imageData, int sortOrder) {
+    public UserPhoto(User user, String storageKey, int sortOrder) {
         this.user = user;
-        this.imageData = imageData;
+        this.storageKey = storageKey;
         this.sortOrder = sortOrder;
     }
 }
