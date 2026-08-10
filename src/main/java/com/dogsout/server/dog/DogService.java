@@ -1,14 +1,18 @@
 package com.dogsout.server.dog;
 
 import com.dogsout.server.ProfanityFilter;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.User;
 import com.dogsout.server.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,6 +25,7 @@ public class DogService {
     private final UserRepository userRepository;
     private final DogPhotoRepository dogPhotoRepository;
     private final ProfanityFilter profanityFilter;
+    private final PhotoService photoService;
 
     public DogResponse createDog(String email, DogRequest request) {
         User owner = findUser(email);
@@ -60,23 +65,27 @@ public class DogService {
     public void deleteDog(String email, Long id) {
         Dog dog = findDog(id);
         assertOwner(email, dog);
-        dogPhotoRepository.deleteAll(dogPhotoRepository.findByDogOrderBySortOrderAsc(dog));
+        List<DogPhoto> photos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
+        List<String> keys = new ArrayList<>(photos.stream().map(DogPhoto::getStorageKey).toList());
+        dogPhotoRepository.deleteAll(photos);
         dogRepository.delete(dog);
+        keys.forEach(photoService::delete);
     }
 
-    public DogPhotoResponse addPhoto(String email, Long dogId, String imageData) {
+    public DogPhotoResponse addPhoto(String email, Long dogId, MultipartFile file) {
         Dog dog = findDog(dogId);
         assertOwner(email, dog);
         long count = dogPhotoRepository.countByDog(dog);
         if (count >= 6) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 6 photos per dog");
         }
-        DogPhoto photo = dogPhotoRepository.save(new DogPhoto(dog, imageData, (int) count));
+        String key = photoService.store(PhotoService.OWNER_DOG, file);
+        DogPhoto photo = dogPhotoRepository.save(new DogPhoto(dog, key, (int) count));
         if (count == 0) {
-            dog.setProfilePicture(imageData);
+            dog.setProfilePictureKey(key);
             dogRepository.save(dog);
         }
-        return new DogPhotoResponse(photo.getId(), photo.getImageData(), photo.getSortOrder());
+        return toPhotoResponse(photo);
     }
 
     public void deletePhoto(String email, Long dogId, Long photoId) {
@@ -89,8 +98,9 @@ public class DogService {
         }
         dogPhotoRepository.delete(photo);
         List<DogPhoto> remaining = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
-        dog.setProfilePicture(remaining.isEmpty() ? null : remaining.get(0).getImageData());
+        dog.setProfilePictureKey(remaining.isEmpty() ? null : remaining.get(0).getStorageKey());
         dogRepository.save(dog);
+        photoService.delete(photo.getStorageKey());
     }
 
     public void reorderPhotos(String email, Long dogId, List<Long> photoIds) {
@@ -104,7 +114,7 @@ public class DogService {
         for (DogPhoto photo : photos) {
             photo.setSortOrder(photoIds.indexOf(photo.getId()));
             if (photo.getSortOrder() == 0) {
-                dog.setProfilePicture(photo.getImageData());
+                dog.setProfilePictureKey(photo.getStorageKey());
             }
         }
         dogPhotoRepository.saveAll(photos);
@@ -123,7 +133,6 @@ public class DogService {
         if (req.breed() != null)        dog.setBreed(req.breed());
         if (req.dateOfBirth() != null)  dog.setDateOfBirth(req.dateOfBirth());
         if (req.bio() != null)          dog.setBio(req.bio());
-        if (req.profilePicture() != null) dog.setProfilePicture(req.profilePicture());
         if (req.energyLevel() != null)  dog.setEnergyLevel(req.energyLevel());
         if (req.socialBehavior() != null) dog.setSocialBehavior(req.socialBehavior());
         if (req.offLeash() != null)     dog.setOffLeash(req.offLeash());
@@ -148,19 +157,27 @@ public class DogService {
         }
     }
 
+    private DogPhotoResponse toPhotoResponse(DogPhoto photo) {
+        return new DogPhotoResponse(
+                photo.getId(),
+                photoService.url(photo.getStorageKey(), PhotoRendition.FEED),
+                photoService.url(photo.getStorageKey(), PhotoRendition.THUMB),
+                photo.getSortOrder());
+    }
+
     private DogResponse toResponse(Dog dog) {
         List<DogPhotoResponse> photos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog)
-                .stream().map(p -> new DogPhotoResponse(p.getId(), p.getImageData(), p.getSortOrder())).toList();
+                .stream().map(this::toPhotoResponse).toList();
         return new DogResponse(
                 dog.getId(),
                 dog.getName(),
                 dog.getBreed(),
                 dog.getDateOfBirth(),
                 dog.getBio(),
-                dog.getProfilePicture(),
+                photoService.url(dog.getProfilePictureKey(), PhotoRendition.THUMB),
                 dog.getOwner().getId(),
                 dog.getOwner().getName(),
-                dog.getOwner().getProfilePicture(),
+                photoService.url(dog.getOwner().getProfilePictureKey(), PhotoRendition.THUMB),
                 dog.getCreatedAt(),
                 dog.getEnergyLevel(),
                 dog.getSocialBehavior(),

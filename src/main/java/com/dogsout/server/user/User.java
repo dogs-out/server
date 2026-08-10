@@ -36,8 +36,13 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    @Column(columnDefinition = "TEXT")
-    private String profilePicture;
+    /**
+     * Storage key of the photo with {@code sortOrder == 0}, denormalized so that
+     * rendering an avatar — chat rows, attendee lists, match cards — costs no join.
+     * Always kept in step with {@code user_photos} by {@code UserService}.
+     */
+    @Column(name = "profile_picture_key")
+    private String profilePictureKey;
 
     private Double latitude;
     private Double longitude;

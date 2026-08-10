@@ -4,6 +4,8 @@ import com.dogsout.server.chat.Message;
 import com.dogsout.server.chat.MessageRepository;
 import com.dogsout.server.moderation.BlockRepository;
 import com.dogsout.server.notification.PushNotificationService;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.User;
 import com.dogsout.server.websocket.ChatSocketEvent;
 import com.dogsout.server.websocket.ChatSocketHandler;
@@ -29,6 +31,7 @@ public class MatchService {
     private final BlockRepository blockRepository;
     private final ChatSocketHandler chatSocketHandler;
     private final PushNotificationService pushNotificationService;
+    private final PhotoService photoService;
 
     public SwipeResponse swipe(String email, SwipeRequest request) {
         User me = userRepository.findByEmail(email)
@@ -117,7 +120,7 @@ public class MatchService {
                 match.getId(),
                 other.getId(),
                 other.getName(),
-                other.getProfilePicture(),
+                photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
                 match.getCreatedAt(),
                 last.map(Message::getContent).orElse(null),
                 last.map(Message::getSentAt).orElse(null),

@@ -5,6 +5,8 @@ import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.dog.DogResponse;
 import com.dogsout.server.dog.DogPhotoResponse;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,6 +42,7 @@ public class DiscoverService {
     private final DogPhotoRepository dogPhotoRepository;
     private final MatchRepository matchRepository;
     private final BlockRepository blockRepository;
+    private final PhotoService photoService;
 
     public List<DiscoverProfile> getDiscoverFeed(String email) {
         User me = userRepository.findByEmail(email)
@@ -152,16 +155,24 @@ public class DiscoverService {
                 : -1;
 
         List<UserPhotoResponse> userPhotos = userPhotoRepository.findByUserOrderBySortOrderAsc(u)
-                .stream().map(p -> new UserPhotoResponse(p.getId(), p.getImageData(), p.getSortOrder())).toList();
+                .stream().map(p -> new UserPhotoResponse(
+                        p.getId(),
+                        photoService.url(p.getStorageKey(), PhotoRendition.FEED),
+                        photoService.url(p.getStorageKey(), PhotoRendition.THUMB),
+                        p.getSortOrder())).toList();
 
         List<DogResponse> dogs = dogRepository.findByOwner(u).stream()
                 .map(dog -> {
                     List<DogPhotoResponse> dogPhotos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog)
-                            .stream().map(p -> new DogPhotoResponse(p.getId(), p.getImageData(), p.getSortOrder())).toList();
+                            .stream().map(p -> new DogPhotoResponse(
+                                    p.getId(),
+                                    photoService.url(p.getStorageKey(), PhotoRendition.FEED),
+                                    photoService.url(p.getStorageKey(), PhotoRendition.THUMB),
+                                    p.getSortOrder())).toList();
                     return new DogResponse(
                             dog.getId(), dog.getName(), dog.getBreed(), dog.getDateOfBirth(),
-                            dog.getBio(), dog.getProfilePicture(),
-                            u.getId(), u.getName(), u.getProfilePicture(),
+                            dog.getBio(), photoService.url(dog.getProfilePictureKey(), PhotoRendition.THUMB),
+                            u.getId(), u.getName(), photoService.url(u.getProfilePictureKey(), PhotoRendition.THUMB),
                             dog.getCreatedAt(),
                             dog.getEnergyLevel(), dog.getSocialBehavior(),
                             dog.getLoves() != null ? Arrays.asList(dog.getLoves().split(TAG_SPLIT_REGEX)) : List.of(),
@@ -183,7 +194,8 @@ public class DiscoverService {
         boolean isSitter = Boolean.TRUE.equals(u.getIsSitter());
 
         return new DiscoverProfile(
-                u.getId(), u.getName(), age, u.getBio(), u.getProfilePicture(),
+                u.getId(), u.getName(), age, u.getBio(),
+                photoService.url(u.getProfilePictureKey(), PhotoRendition.THUMB),
                 userPhotos,
                 u.getLifestyleTags() != null ? Arrays.asList(u.getLifestyleTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 u.getPersonalityTags() != null ? Arrays.asList(u.getPersonalityTags().split(TAG_SPLIT_REGEX)) : List.of(),

@@ -7,11 +7,14 @@ import com.dogsout.server.dog.DogPhotoRepository;
 import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.photo.PhotoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Arrays;
@@ -36,6 +39,7 @@ public class UserService {
     private final MatchRepository matchRepository;
     private final BlockRepository blockRepository;
     private final com.dogsout.server.playdate.PlaydateService playdateService;
+    private final PhotoService photoService;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -53,7 +57,6 @@ public class UserService {
         if (request.dateOfBirth() != null)      user.setDateOfBirth(request.dateOfBirth());
         if (request.latitude() != null)         user.setLatitude(request.latitude());
         if (request.longitude() != null)        user.setLongitude(request.longitude());
-        if (request.profilePicture() != null)   user.setProfilePicture(request.profilePicture());
         if (request.lifestyleTags() != null)    user.setLifestyleTags(request.lifestyleTags().isEmpty() ? null : String.join("||", request.lifestyleTags()));
         if (request.personalityTags() != null)  user.setPersonalityTags(request.personalityTags().isEmpty() ? null : String.join("||", request.personalityTags()));
         if (request.relationshipStatus() != null) user.setRelationshipStatus(request.relationshipStatus());
@@ -88,18 +91,19 @@ public class UserService {
         userRepository.save(user);
     }
 
-    public UserPhotoResponse addPhoto(String email, String imageData) {
+    public UserPhotoResponse addPhoto(String email, MultipartFile file) {
         User user = findUser(email);
         long count = userPhotoRepository.countByUser(user);
         if (count >= 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum 3 photos per profile");
         }
-        UserPhoto photo = userPhotoRepository.save(new UserPhoto(user, imageData, (int) count));
+        String key = photoService.store(PhotoService.OWNER_USER, file);
+        UserPhoto photo = userPhotoRepository.save(new UserPhoto(user, key, (int) count));
         if (count == 0) {
-            user.setProfilePicture(imageData);
+            user.setProfilePictureKey(key);
             userRepository.save(user);
         }
-        return new UserPhotoResponse(photo.getId(), photo.getImageData(), photo.getSortOrder());
+        return toPhotoResponse(photo);
     }
 
     public void deletePhoto(String email, Long photoId) {
@@ -111,8 +115,10 @@ public class UserService {
         }
         userPhotoRepository.delete(photo);
         List<UserPhoto> remaining = userPhotoRepository.findByUserOrderBySortOrderAsc(user);
-        user.setProfilePicture(remaining.isEmpty() ? null : remaining.get(0).getImageData());
+        user.setProfilePictureKey(remaining.isEmpty() ? null : remaining.get(0).getStorageKey());
         userRepository.save(user);
+        // Only once the row is gone, so a storage failure can't orphan the record.
+        photoService.delete(photo.getStorageKey());
     }
 
     public void reorderPhotos(String email, List<Long> photoIds) {
@@ -125,7 +131,7 @@ public class UserService {
         for (UserPhoto photo : photos) {
             photo.setSortOrder(photoIds.indexOf(photo.getId()));
             if (photo.getSortOrder() == 0) {
-                user.setProfilePicture(photo.getImageData());
+                user.setProfilePictureKey(photo.getStorageKey());
             }
         }
         userPhotoRepository.saveAll(photos);
@@ -152,10 +158,21 @@ public class UserService {
         matchRepository.deleteByUser1OrUser2(user, user);
         blockRepository.deleteByBlockerOrBlocked(user, user);
         List<Dog> dogs = dogRepository.findByOwner(user);
-        dogs.forEach(dog -> dogPhotoRepository.deleteAll(dogPhotoRepository.findByDogOrderBySortOrderAsc(dog)));
+        // Collect the keys before the rows go, then drop the bytes after. Deleting the
+        // account has to take the photos with it — they sit in a publicly fetchable
+        // bucket, so a surviving object is a deleted user's face still on the internet.
+        List<String> keys = new java.util.ArrayList<>();
+        dogs.forEach(dog -> {
+            List<com.dogsout.server.dog.DogPhoto> dogPhotos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
+            dogPhotos.forEach(p -> keys.add(p.getStorageKey()));
+            dogPhotoRepository.deleteAll(dogPhotos);
+        });
         dogRepository.deleteAll(dogs);
-        userPhotoRepository.deleteAll(userPhotoRepository.findByUserOrderBySortOrderAsc(user));
+        List<UserPhoto> userPhotos = userPhotoRepository.findByUserOrderBySortOrderAsc(user);
+        userPhotos.forEach(p -> keys.add(p.getStorageKey()));
+        userPhotoRepository.deleteAll(userPhotos);
         userRepository.delete(user);
+        keys.forEach(photoService::delete);
     }
 
     private User findUser(String email) {
@@ -163,16 +180,26 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
+    private UserPhotoResponse toPhotoResponse(UserPhoto photo) {
+        return new UserPhotoResponse(
+                photo.getId(),
+                photoService.url(photo.getStorageKey(), PhotoRendition.FEED),
+                photoService.url(photo.getStorageKey(), PhotoRendition.THUMB),
+                photo.getSortOrder());
+    }
+
     private UserResponse toResponse(User user) {
         List<UserPhotoResponse> photos = userPhotoRepository.findByUserOrderBySortOrderAsc(user)
-                .stream().map(p -> new UserPhotoResponse(p.getId(), p.getImageData(), p.getSortOrder())).toList();
+                .stream().map(this::toPhotoResponse).toList();
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getName(),
                 user.getDateOfBirth(),
                 user.getBio(),
-                user.getProfilePicture(),
+                // profilePicture is an avatar everywhere it is consumed, so it carries
+                // the thumb. Full-size images come from photos[].url.
+                photoService.url(user.getProfilePictureKey(), PhotoRendition.THUMB),
                 user.getLatitude(),
                 user.getLongitude(),
                 user.getRole() != null ? user.getRole().name() : null,
