@@ -181,8 +181,12 @@ public class AuthService implements UserDetailsService {
         }
 
         if (claims.email() == null) {
+            // Apple withholds the email once the user has already authorized this app, so
+            // "try again" does not help — the previous wording sent people in circles.
+            // Revoking the app in iOS Settings makes the next sign-in count as the first.
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                    "Email not available from Apple. Please sign in again and grant email access.");
+                    "Apple didn't share an email address for this account. Open Settings > your name > "
+                            + "Sign in with Apple > DogsOut > Stop Using Apple ID, then sign in again.");
         }
 
         Optional<User> byEmail = userRepository.findByEmail(claims.email());
@@ -199,7 +203,7 @@ public class AuthService implements UserDetailsService {
         // New user
         User newUser = new User();
         newUser.setEmail(claims.email());
-        newUser.setName(claims.email().split("@")[0]);
+        newUser.setName(displayName(request.fullName(), claims.email()));
         newUser.setRole(Role.USER);
         newUser.setAuthProvider(AuthProvider.APPLE);
         newUser.setIsActive(true);
@@ -343,11 +347,23 @@ public class AuthService implements UserDetailsService {
                     .parseSignedClaims(identityToken)
                     .getPayload();
 
-            if (!appleClientId.isEmpty()) {
-                boolean audienceMatch = claims.getAudience().stream().anyMatch(appleClientId::equals);
-                if (!audienceMatch) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Apple token audience mismatch");
-                }
+            // The audience check is what ties this token to *our* app. Without it any
+            // Apple-signed identity token would be accepted, so another app could replay
+            // its own users' tokens here and sign in as them. Missing config is therefore
+            // a server fault, not a reason to skip the check.
+            if (appleClientId.isEmpty()) {
+                log.error("apple.client-id is not configured — refusing to verify Apple tokens");
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Sign in with Apple is not configured on the server");
+            }
+            boolean audienceMatch = claims.getAudience().stream().anyMatch(appleClientId::equals);
+            if (!audienceMatch) {
+                // Almost always a config mismatch rather than an attack: for a native iOS
+                // sign-in the audience is the app's bundle identifier, so apple.client-id
+                // must equal the bundle id and gets missed whenever that changes.
+                log.error("Apple token audience {} does not match configured apple.client-id {}",
+                        claims.getAudience(), appleClientId);
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Apple token audience mismatch");
             }
 
             return new AppleTokenClaims(claims.getSubject(), claims.get(EMAIL_CLAIM, String.class));
@@ -356,6 +372,22 @@ public class AuthService implements UserDetailsService {
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Apple token");
         }
+    }
+
+    /**
+     * Name for a brand-new Apple account.
+     *
+     * <p>Falls back to the local part of the email, which is what every Apple account
+     * used to get. That reads badly for anyone using Hide My Email, since their address
+     * is a random relay string — hence preferring the name Apple supplies on first
+     * authorization, the only time it is ever offered.
+     */
+    static String displayName(String fullName, String email) {
+        if (fullName != null && !fullName.isBlank()) {
+            String trimmed = fullName.trim();
+            return trimmed.length() > 100 ? trimmed.substring(0, 100) : trimmed;
+        }
+        return email.split("@")[0];
     }
 
     private record AppleTokenClaims(String sub, String email) {}
