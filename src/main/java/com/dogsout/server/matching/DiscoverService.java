@@ -151,7 +151,8 @@ public class DiscoverService {
     private DiscoverProfile toDiscoverProfile(User u, User me) {
         double distance = (me.getLatitude() != null && me.getLongitude() != null
                 && u.getLatitude() != null && u.getLongitude() != null)
-                ? calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude())
+                ? coarseDistanceKm(calculateDistance(
+                        me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()))
                 : -1;
 
         List<UserPhotoResponse> userPhotos = userPhotoRepository.findByUserOrderBySortOrderAsc(u)
@@ -222,5 +223,22 @@ public class DiscoverService {
 
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
         return com.dogsout.server.GeoUtil.distanceKm(lat1, lon1, lat2, lon2);
+    }
+
+    /**
+     * Reduces a distance to the whole kilometre the app actually displays.
+     *
+     * <p>An exact distance is enough to find someone's home. A caller can set their own
+     * coordinates to three points — {@code PUT /users/me} accepts any latitude and
+     * longitude — read the three exact distances that come back, and solve for the other
+     * user's position. That is a handful of ordinary requests, not an attack needing
+     * special access, and it is how dating apps have leaked addresses before.
+     *
+     * <p>Rounding here costs nothing: the client already renders whole kilometres, or
+     * "less than 1 km" below that, so no precision that anyone could see is lost. It
+     * leaves trilateration resolving to roughly a square kilometre.
+     */
+    static double coarseDistanceKm(double exactKm) {
+        return Math.round(exactKm);
     }
 }
