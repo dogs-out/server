@@ -51,7 +51,15 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your name contains inappropriate language.");
         if (profanityFilter.containsProfanity(request.bio()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your bio contains inappropriate language.");
+        if (request.dateOfBirth() != null) requireAdult(request.dateOfBirth());
         User user = findUser(email);
+        // Every account has to carry an age. Validating the value only helps if one is
+        // present, and accounts can otherwise reach the app without ever supplying one:
+        // registration does not ask for it, and neither does a Google or Apple sign-in.
+        if (user.getDateOfBirth() == null && request.dateOfBirth() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Please add your date of birth to your profile before continuing");
+        }
         if (request.name() != null)             user.setName(request.name());
         if (request.bio() != null)              user.setBio(request.bio());
         if (request.dateOfBirth() != null)      user.setDateOfBirth(request.dateOfBirth());
@@ -173,6 +181,32 @@ public class UserService {
         userPhotoRepository.deleteAll(userPhotos);
         userRepository.delete(user);
         keys.forEach(photoService::delete);
+    }
+
+    /** Dogs Out is an adults-only service; its terms and its store age ratings all say 18+. */
+    private static final int MIN_AGE_YEARS = 18;
+
+    /**
+     * Rejects a date of birth belonging to a minor.
+     *
+     * <p>The app already refuses these at the signup screen, but that check lives in the
+     * client and anything talking to the API directly can simply skip it. Since the
+     * published child-safety standards state that under-18s are not permitted, the rule
+     * has to hold at the only place it cannot be bypassed.
+     *
+     * <p>Someone born exactly {@value #MIN_AGE_YEARS} years ago today is old enough — the
+     * comparison is deliberately strict so the birthday itself counts.
+     */
+    static void requireAdult(java.time.LocalDate dateOfBirth) {
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
+        if (dateOfBirth.isAfter(today)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Date of birth cannot be in the future");
+        }
+        if (dateOfBirth.isAfter(today.minusYears(MIN_AGE_YEARS))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "You must be at least " + MIN_AGE_YEARS + " years old to use Dogs Out");
+        }
     }
 
     private User findUser(String email) {
