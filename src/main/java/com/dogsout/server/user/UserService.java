@@ -53,6 +53,13 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your bio contains inappropriate language.");
         if (request.dateOfBirth() != null) requireAdult(request.dateOfBirth());
         User user = findUser(email);
+        // Every account has to carry an age. Validating the value only helps if one is
+        // present, and accounts can otherwise reach the app without ever supplying one:
+        // registration does not ask for it, and neither does a Google or Apple sign-in.
+        if (user.getDateOfBirth() == null && request.dateOfBirth() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Please add your date of birth to your profile before continuing");
+        }
         if (request.name() != null)             user.setName(request.name());
         if (request.bio() != null)              user.setBio(request.bio());
         if (request.dateOfBirth() != null)      user.setDateOfBirth(request.dateOfBirth());
