@@ -45,6 +45,9 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of("http://localhost:8081", "http://localhost:19006"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // Response headers are hidden from browser JS unless named here. The native
+        // app is unaffected, but the web target would silently never renew.
+        config.setExposedHeaders(List.of(JwtAuthFilter.REFRESHED_TOKEN_HEADER));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

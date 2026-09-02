@@ -25,6 +25,12 @@ import java.util.Date;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    /**
+     * Response header carrying a renewed token. The app stores whatever comes back
+     * here, which is what keeps a regular user signed in past the token lifetime.
+     */
+    public static final String REFRESHED_TOKEN_HEADER = "X-Refreshed-Token";
+
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
     private final UserRepository userRepository;
@@ -51,6 +57,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     );
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
+
+                    // Deliberately after the revocation check: a token that a password
+                    // change has already invalidated must never be renewed into a
+                    // working one.
+                    if (jwtUtil.isDueForRenewal(token)) {
+                        response.setHeader(REFRESHED_TOKEN_HEADER, jwtUtil.generateToken(email));
+                    }
                 }
             } catch (UsernameNotFoundException ignored) {
                 // Token is valid but the account was deleted — treat as unauthenticated
