@@ -89,8 +89,8 @@ public class AuthService implements UserDetailsService {
             // Unverified account — resend a fresh code
             assignVerificationCode(user);
             userRepository.save(user);
-            sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
-            return new MessageResponse("A new verification code has been sent to your email.");
+            boolean resent = sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
+            return new MessageResponse("A new verification code has been sent to your email.", resent);
         }
 
         User user = new User();
@@ -104,8 +104,8 @@ public class AuthService implements UserDetailsService {
         assignVerificationCode(user);
         userRepository.save(user);
 
-        sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
-        return new MessageResponse("Registration successful. Please check your email to verify your account.");
+        boolean sent = sendVerificationEmailSafely(user.getEmail(), user.getVerificationCode());
+        return new MessageResponse("Registration successful. Please check your email to verify your account.", sent);
     }
 
     public AuthResponse verifyEmail(VerifyEmailRequest request) {
@@ -249,12 +249,23 @@ public class AuthService implements UserDetailsService {
         return new MessageResponse("Password reset successfully. Please log in with your new password.");
     }
 
-    private void sendVerificationEmailSafely(String email, String code) {
+    /**
+     * Sends the code without letting a mail failure fail the request — the account
+     * exists either way, and the code is a live credential we won't put in a
+     * response body. Returns whether it went out, so the caller can at least stop
+     * telling people to check an inbox nothing is coming to: a domain whose DNS
+     * rejects our mail used to look identical to a delivered code.
+     */
+    private boolean sendVerificationEmailSafely(String email, String code) {
         try {
             emailService.sendVerificationEmail(email, code);
+            return true;
         } catch (Exception e) {
-            // Same reasoning as the reset token — the code is a live credential.
-            log.warn("Verification email failed for {}: {}", email, e.getMessage());
+            // ERROR, not WARN: someone is sitting in front of a code entry screen
+            // that will never receive a code. The provider's response body is in
+            // the message and usually names the reason.
+            log.error("Verification email failed for {}: {}", email, e.getMessage());
+            return false;
         }
     }
 
