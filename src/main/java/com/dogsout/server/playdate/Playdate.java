@@ -55,6 +55,14 @@ public class Playdate {
     private PlaydateStatus status = PlaydateStatus.ACTIVE;
 
     @CreationTimestamp
+    /**
+     * When each reminder was sent, so a restart or an overlapping scheduler run
+     * cannot notify the same people twice. Null means not sent — a playdate created
+     * less than a day out simply never gets the day reminder, which is correct.
+     */
+    private Instant dayReminderSentAt;
+    private Instant hourReminderSentAt;
+
     @Column(updatable = false)
     private Instant createdAt;
 
