@@ -27,6 +27,12 @@ public class Dog {
     private String breed;
     private LocalDate dateOfBirth;
 
+    /**
+     * The year this dog's birthday greeting went out. Cheaper and more honest than
+     * a timestamp: the question is only ever "have we already done this year".
+     */
+    private Integer birthdayGreetedYear;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 
