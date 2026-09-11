@@ -32,5 +32,8 @@ public record UserResponse(
         Integer minDogAge,
         Integer maxDogAge,
         Boolean notificationsEnabled,
-        boolean termsAccepted
+        boolean termsAccepted,
+        /** Null once it has expired — see UserService.activeStatus. */
+        String walkStatus,
+        java.time.Instant walkStatusExpiresAt
 ) {}

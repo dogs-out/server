@@ -43,6 +43,20 @@ public class User {
      */
     private Instant termsAcceptedAt;
 
+    /**
+     * Current status, and how long it stands for. Expiry is stored rather than a
+     * duration so nothing has to run on a timer to make a status stop being true —
+     * every read compares against the clock, and a status simply stops counting.
+     */
+    @Enumerated(EnumType.STRING)
+    private WalkStatus walkStatus;
+
+    private Instant walkStatusExpiresAt;
+
+    /** Optional, and only ever set for the statuses that may carry a point. */
+    private Double walkStatusLatitude;
+    private Double walkStatusLongitude;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 
@@ -116,4 +130,17 @@ public class User {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    /**
+     * The status as it should be read anywhere: an expired one is no status.
+     *
+     * <p>On the entity rather than in a service because every reader needs the
+     * same answer, and a stale status leaking into one caller's view of a user is
+     * exactly the bug this prevents.
+     */
+    public WalkStatus activeWalkStatus() {
+        if (walkStatus == null) return null;
+        return walkStatusExpiresAt != null && walkStatusExpiresAt.isBefore(Instant.now())
+                ? null : walkStatus;
+    }
 }

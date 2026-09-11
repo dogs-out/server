@@ -55,6 +55,12 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/me/status")
+    public ResponseEntity<UserResponse> updateStatus(
+            Authentication auth, @Valid @RequestBody UpdateStatusRequest request) {
+        return ResponseEntity.ok(userService.updateStatus(auth.getName(), request));
+    }
+
     @PostMapping("/me/terms")
     public ResponseEntity<Void> acceptTerms(Authentication auth) {
         userService.acceptTerms(auth.getName());

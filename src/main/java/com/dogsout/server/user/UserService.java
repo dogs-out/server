@@ -255,9 +255,42 @@ public class UserService {
                 user.getMinDogAge(),
                 user.getMaxDogAge(),
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
-                user.getTermsAcceptedAt() != null
+                user.getTermsAcceptedAt() != null,
+                user.activeWalkStatus() == null ? null : user.activeWalkStatus().name(),
+                user.activeWalkStatus() == null ? null : user.getWalkStatusExpiresAt()
         );
     }
+
+    /**
+     * Sets or clears the current status.
+     *
+     * <p>A point is dropped for any status that may not carry one, rather than
+     * rejected: the app should not be able to publish where someone lives by
+     * sending the wrong pair of fields, and silently narrowing is safer than
+     * trusting the caller to have got it right.
+     */
+    public UserResponse updateStatus(String email, UpdateStatusRequest request) {
+        User user = findUser(email);
+
+        if (request.status() == null) {
+            user.setWalkStatus(null);
+            user.setWalkStatusExpiresAt(null);
+            user.setWalkStatusLatitude(null);
+            user.setWalkStatusLongitude(null);
+        } else {
+            int hours = request.hours() == null ? 1 : request.hours();
+            user.setWalkStatus(request.status());
+            user.setWalkStatusExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofHours(hours)));
+
+            boolean sharesPoint = request.status().mayShareLocation()
+                    && request.latitude() != null && request.longitude() != null;
+            user.setWalkStatusLatitude(sharesPoint ? request.latitude() : null);
+            user.setWalkStatusLongitude(sharesPoint ? request.longitude() : null);
+        }
+        userRepository.save(user);
+        return toResponse(user);
+    }
+
 
     /**
      * Records that this account has accepted the terms.

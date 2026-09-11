@@ -29,5 +29,7 @@ public record DiscoverProfile(
          * never exposed anywhere in this DTO, and the app only needs to know
          * whether to dress the chat up.
          */
-        boolean celebratingToday
+        boolean celebratingToday,
+        /** Their current status, or null if they have none or it has run out. */
+        String walkStatus
 ) {}

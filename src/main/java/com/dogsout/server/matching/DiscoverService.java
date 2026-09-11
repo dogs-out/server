@@ -208,7 +208,8 @@ public class DiscoverService {
                 isSitter ? u.getSitterExperienceYears() : null,
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter()),
-                celebratingToday(u)
+                celebratingToday(u),
+                u.activeWalkStatus() == null ? null : u.activeWalkStatus().name()
         );
     }
 
