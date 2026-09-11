@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import com.dogsout.server.user.AuthProvider;
@@ -265,7 +267,8 @@ public class UserService {
                 user.activeWalkStatus() == null ? null : user.getWalkStatusLongitude(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusPlaceName(),
                 user.activeWalkStatus() == null || user.getWalkStatusDog() == null
-                        ? null : user.getWalkStatusDog().getId()
+                        ? null : user.getWalkStatusDog().getId(),
+                celebratingToday(user)
         );
     }
 
@@ -440,6 +443,23 @@ public class UserService {
                     ? List.of() : List.of(user.getWalkStatusDog().getName());
         }
         return dogRepository.findByOwner(user).stream().map(Dog::getName).toList();
+    }
+
+    /**
+     * Their own birthday, or one of their dogs'. Compared on month and day only,
+     * the same rule DiscoverService applies to everyone else's.
+     */
+    private boolean celebratingToday(User user) {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        if (isSameDayOfYear(user.getDateOfBirth(), today)) return true;
+        return dogRepository.findByOwner(user).stream()
+                .anyMatch(dog -> isSameDayOfYear(dog.getDateOfBirth(), today));
+    }
+
+    private static boolean isSameDayOfYear(LocalDate date, LocalDate today) {
+        return date != null
+                && date.getMonthValue() == today.getMonthValue()
+                && date.getDayOfMonth() == today.getDayOfMonth();
     }
 
     /** -1 where either side has no point to measure from — the row then hides the distance. */

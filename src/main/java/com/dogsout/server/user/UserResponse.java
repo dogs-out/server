@@ -40,5 +40,7 @@ public record UserResponse(
         Double walkStatusLatitude,
         Double walkStatusLongitude,
         String walkStatusPlaceName,
-        Long walkStatusDogId
+        Long walkStatusDogId,
+        /** Today is this account's birthday, or one of its dogs'. Month and day only. */
+        boolean celebratingToday
 ) {}
