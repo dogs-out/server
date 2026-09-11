@@ -306,8 +306,9 @@ public class UserService {
 
         return matchRepository.findAllMatchesForUser(me.getId()).stream()
                 .map(match -> match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1())
+                // A point is optional, so somebody walking without one still belongs
+                // on the list — their row simply does not open a map.
                 .filter(other -> other.activeWalkStatus() == WalkStatus.WALKING)
-                .filter(other -> other.getWalkStatusLatitude() != null && other.getWalkStatusLongitude() != null)
                 .map(other -> new WalkingFriend(
                         other.getId(),
                         other.getName(),
@@ -317,7 +318,10 @@ public class UserService {
                         other.getWalkStatusLongitude(),
                         other.getWalkStatusExpiresAt(),
                         distanceTo(me, other)))
-                .sorted(java.util.Comparator.comparingDouble(WalkingFriend::distanceKm))
+                // Nearest first, with the ones who shared no point after them rather
+                // than at the top, where a distance of -1 would otherwise put them.
+                .sorted(java.util.Comparator.comparingDouble(
+                        f -> f.distanceKm() < 0 ? Double.MAX_VALUE : f.distanceKm()))
                 .toList();
     }
 
@@ -349,8 +353,10 @@ public class UserService {
         }
     }
 
+    /** -1 where either side has no point to measure from — the row then hides the distance. */
     private double distanceTo(User me, User other) {
         if (me.getLatitude() == null || me.getLongitude() == null) return -1;
+        if (other.getWalkStatusLatitude() == null || other.getWalkStatusLongitude() == null) return -1;
         return Math.round(com.dogsout.server.GeoUtil.distanceKm(
                 me.getLatitude(), me.getLongitude(), other.getWalkStatusLatitude(), other.getWalkStatusLongitude()));
     }
