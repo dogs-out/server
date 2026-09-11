@@ -43,6 +43,10 @@ class PlaydateJoinEligibilityTest {
         ReflectionTestUtils.invokeMethod(service, "requireEligibleToJoin", playdate, user);
     }
 
+    private void checkHost(User user) {
+        ReflectionTestUtils.invokeMethod(service, "requireCanHost", user);
+    }
+
     @Test
     void dogOwnersAreAlwaysWelcome() {
         assertThatCode(() -> check(playdate(false), user(true, false))).doesNotThrowAnyException();
@@ -77,5 +81,36 @@ class PlaydateJoinEligibilityTest {
         assertThatThrownBy(() -> check(playdate(true), user(false, false)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("dog owners and dogsitters");
+    }
+
+    // ─── Hosting, which is narrower than attending ────────────────────────────
+
+    @Test
+    void onlyDogOwnersMayHost() {
+        assertThatCode(() -> checkHost(user(true, false))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aSitterMayAttendButNotHost() {
+        // The difference that makes hosting a separate rule: a sitter turns up with
+        // someone else's dog, which is not a reason to organise a meetup of your own.
+        assertThatCode(() -> check(playdate(true), user(false, true))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> checkHost(user(false, true)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("hosted by dog owners");
+    }
+
+    @Test
+    void someoneWithNoDogCannotHost() {
+        // The app hides the button; this is the rule behind it, for anyone calling
+        // the API directly.
+        assertThatThrownBy(() -> checkHost(user(false, false)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("hosted by dog owners");
+    }
+
+    @Test
+    void legacyAccountsWithoutTheFlagMayStillHost() {
+        assertThatCode(() -> checkHost(user(null, null))).doesNotThrowAnyException();
     }
 }

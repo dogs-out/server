@@ -93,6 +93,7 @@ public class PlaydateService {
 
     public PlaydateResponse create(String email, CreatePlaydateRequest request) {
         User me = findUser(email);
+        requireCanHost(me);
         validateDetails(request.title(), request.description(), request.startsAt(), request.maxParticipants());
 
         Playdate playdate = new Playdate();
@@ -182,6 +183,24 @@ public class PlaydateService {
                     Map.of("type", "PLAYDATE_JOINED", PLAYDATE_ID_KEY, playdate.getId()));
         }
         return toResponse(playdate, me, true);
+    }
+
+    /**
+     * Who is allowed to host one.
+     *
+     * <p>Dog owners only — narrower than who may attend, because a sitter may come
+     * along to someone else's meetup but has no dog of their own to organise one
+     * around. The app already hides the button, but hiding a button is not a rule:
+     * "invite strangers to a park at a stated time" has to be refused by the
+     * server, or it is refused by nothing.
+     *
+     * <p>Null means an account from before the flag existed; those are treated as
+     * owners rather than locked out, the same as everywhere else here.
+     */
+    private void requireCanHost(User user) {
+        if (Boolean.FALSE.equals(user.getHasDog())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Playdates are hosted by dog owners");
+        }
     }
 
     /**
