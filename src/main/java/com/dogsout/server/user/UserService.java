@@ -254,7 +254,22 @@ public class UserService {
                 user.getMaxAge(),
                 user.getMinDogAge(),
                 user.getMaxDogAge(),
-                !Boolean.FALSE.equals(user.getNotificationsEnabled())
+                !Boolean.FALSE.equals(user.getNotificationsEnabled()),
+                user.getTermsAcceptedAt() != null
         );
+    }
+
+    /**
+     * Records that this account has accepted the terms.
+     *
+     * <p>Idempotent on purpose: a retry after a dropped response should not look
+     * like a second acceptance, and the first time is the one that matters.
+     */
+    public void acceptTerms(String email) {
+        User user = findUser(email);
+        if (user.getTermsAcceptedAt() == null) {
+            user.setTermsAcceptedAt(java.time.Instant.now());
+            userRepository.save(user);
+        }
     }
 }

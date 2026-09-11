@@ -31,5 +31,6 @@ public record UserResponse(
         Integer maxAge,
         Integer minDogAge,
         Integer maxDogAge,
-        Boolean notificationsEnabled
+        Boolean notificationsEnabled,
+        boolean termsAccepted
 ) {}

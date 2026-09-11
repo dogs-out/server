@@ -36,6 +36,13 @@ public class User {
     /** See Dog.birthdayGreetedYear — same marker, same reason. */
     private Integer birthdayGreetedYear;
 
+    /**
+     * When this account accepted the terms. Null means never, including for every
+     * account that existed before the gate — they are asked on next launch, which
+     * is the point of recording it rather than assuming it.
+     */
+    private Instant termsAcceptedAt;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 

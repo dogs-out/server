@@ -55,6 +55,12 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/me/terms")
+    public ResponseEntity<Void> acceptTerms(Authentication auth) {
+        userService.acceptTerms(auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAccount(Authentication auth) {
         userService.deleteAccount(auth.getName());
