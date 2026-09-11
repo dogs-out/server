@@ -48,6 +48,22 @@ public class User {
      * duration so nothing has to run on a timer to make a status stop being true —
      * every read compares against the clock, and a status simply stops counting.
      */
+    /**
+     * ⚠️ Adding a value to {@link WalkStatus} needs a manual step in production.
+     *
+     * <p>Hibernate generates {@code CHECK (walk_status IN (...))} listing the
+     * values that existed when the column was created, and {@code ddl-auto=update}
+     * never alters an existing constraint. AT_THE_PARK and SITTING therefore
+     * failed with a 500 against production while a freshly created local database
+     * accepted them — the schemas had silently diverged.
+     *
+     * <p>Production's constraint was dropped on 2026-09-11 and, because update
+     * mode only creates constraints alongside a new table, it does not come back.
+     * The same trap is still armed on every other enum column here: matches.status,
+     * playdates.status, playdates.visibility, playdate_participants.status,
+     * users.role and users.auth_provider. Drop the check before shipping a new
+     * value for any of them.
+     */
     @Enumerated(EnumType.STRING)
     private WalkStatus walkStatus;
 
