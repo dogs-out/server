@@ -62,10 +62,16 @@ public class UserController {
         return ResponseEntity.ok(userService.updateStatus(auth.getName(), request));
     }
 
-    /** Matches who are out walking and shared where — the "who's outside" list. */
+    /** Matches who are out right now — the "who's outside" list. */
     @GetMapping("/walking")
     public ResponseEntity<List<WalkingFriend>> walkingFriends(Authentication auth) {
         return ResponseEntity.ok(userService.walkingFriends(auth.getName()));
+    }
+
+    /** The dogs this account may say it is looking after: those of its matches. */
+    @GetMapping("/me/sittable-dogs")
+    public ResponseEntity<List<SittableDog>> sittableDogs(Authentication auth) {
+        return ResponseEntity.ok(userService.sittableDogs(auth.getName()));
     }
 
     @PostMapping("/me/status/invite")

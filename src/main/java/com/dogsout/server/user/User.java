@@ -57,6 +57,22 @@ public class User {
     private Double walkStatusLatitude;
     private Double walkStatusLongitude;
 
+    /**
+     * What the point is called, when it came from the map rather than the phone's
+     * own position. Lets a status say "at Irchelpark" instead of a pair of numbers,
+     * and lets someone name where they are heading before they get there.
+     */
+    private String walkStatusPlaceName;
+
+    /**
+     * The dog being looked after, for SITTING only. A sitter has no dog of their
+     * own to name, so the status borrows one — and it may only ever be a dog
+     * belonging to someone this account has matched with.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "walk_status_dog_id")
+    private com.dogsout.server.dog.Dog walkStatusDog;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 

@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import com.dogsout.server.user.AuthProvider;
@@ -258,7 +260,12 @@ public class UserService {
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
                 user.getTermsAcceptedAt() != null,
                 user.activeWalkStatus() == null ? null : user.activeWalkStatus().name(),
-                user.activeWalkStatus() == null ? null : user.getWalkStatusExpiresAt()
+                user.activeWalkStatus() == null ? null : user.getWalkStatusExpiresAt(),
+                user.activeWalkStatus() == null ? null : user.getWalkStatusLatitude(),
+                user.activeWalkStatus() == null ? null : user.getWalkStatusLongitude(),
+                user.activeWalkStatus() == null ? null : user.getWalkStatusPlaceName(),
+                user.activeWalkStatus() == null || user.getWalkStatusDog() == null
+                        ? null : user.getWalkStatusDog().getId()
         );
     }
 
@@ -274,22 +281,75 @@ public class UserService {
         User user = findUser(email);
 
         if (request.status() == null) {
-            user.setWalkStatus(null);
-            user.setWalkStatusExpiresAt(null);
-            user.setWalkStatusLatitude(null);
-            user.setWalkStatusLongitude(null);
+            clearStatus(user);
         } else {
-            int hours = request.hours() == null ? 1 : request.hours();
-            user.setWalkStatus(request.status());
-            user.setWalkStatusExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofHours(hours)));
+            WalkStatus status = request.status();
+            user.setWalkStatus(status);
+            user.setWalkStatusExpiresAt(Instant.now().plus(Duration.ofHours(status.clampHours(request.hours()))));
 
-            boolean sharesPoint = request.status().mayShareLocation()
+            boolean sharesPoint = status.mayShareLocation()
                     && request.latitude() != null && request.longitude() != null;
             user.setWalkStatusLatitude(sharesPoint ? request.latitude() : null);
             user.setWalkStatusLongitude(sharesPoint ? request.longitude() : null);
+            user.setWalkStatusPlaceName(sharesPoint ? trimToNull(request.placeName()) : null);
+            user.setWalkStatusDog(status.needsSatDog() ? requireSittableDog(user, request.dogId()) : null);
         }
         userRepository.save(user);
         return toResponse(user);
+    }
+
+    private static void clearStatus(User user) {
+        user.setWalkStatus(null);
+        user.setWalkStatusExpiresAt(null);
+        user.setWalkStatusLatitude(null);
+        user.setWalkStatusLongitude(null);
+        user.setWalkStatusPlaceName(null);
+        user.setWalkStatusDog(null);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * The dogs someone may say they are looking after: those belonging to people
+     * they have matched with.
+     *
+     * <p>Matching is this app's record that two people have agreed to be in
+     * contact, and it is already how a sitter reaches an owner. Anything wider
+     * would let a stranger attach their status to a dog — and a name in a
+     * notification is exactly the sort of thing that reads as legitimate.
+     */
+    public List<SittableDog> sittableDogs(String email) {
+        User me = findUser(email);
+        return matchRepository.findAllMatchesForUser(me.getId()).stream()
+                .map(match -> match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1())
+                .flatMap(owner -> dogRepository.findByOwner(owner).stream()
+                        .map(dog -> new SittableDog(
+                                dog.getId(),
+                                dog.getName(),
+                                dog.getBreed(),
+                                photoService.url(dog.getProfilePictureKey(), PhotoRendition.THUMB),
+                                owner.getId(),
+                                owner.getName())))
+                .toList();
+    }
+
+    private Dog requireSittableDog(User me, Long dogId) {
+        if (dogId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick the dog you are looking after");
+        }
+        Dog dog = dogRepository.findById(dogId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dog not found"));
+        boolean matched = matchRepository.findAllMatchesForUser(me.getId()).stream()
+                .anyMatch(match -> match.getUser1().getId().equals(dog.getOwner().getId())
+                        || match.getUser2().getId().equals(dog.getOwner().getId()));
+        if (!matched) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only sit for people you have matched with");
+        }
+        return dog;
     }
 
 
@@ -306,16 +366,21 @@ public class UserService {
 
         return matchRepository.findAllMatchesForUser(me.getId()).stream()
                 .map(match -> match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1())
-                // A point is optional, so somebody walking without one still belongs
-                // on the list — their row simply does not open a map.
-                .filter(other -> other.activeWalkStatus() == WalkStatus.WALKING)
+                // A point is optional, so somebody out without one still belongs on
+                // the list — their row simply does not open a map.
+                .filter(other -> {
+                    WalkStatus status = other.activeWalkStatus();
+                    return status != null && status.isOutAndAbout();
+                })
                 .map(other -> new WalkingFriend(
                         other.getId(),
                         other.getName(),
                         photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
-                        dogRepository.findByOwner(other).stream().map(Dog::getName).toList(),
+                        dogsNamedBy(other),
+                        other.activeWalkStatus().name(),
                         other.getWalkStatusLatitude(),
                         other.getWalkStatusLongitude(),
+                        other.getWalkStatusPlaceName(),
                         other.getWalkStatusExpiresAt(),
                         distanceTo(me, other)))
                 // Nearest first, with the ones who shared no point after them rather
@@ -335,13 +400,12 @@ public class UserService {
      */
     public void inviteMatchesToWalk(String email) {
         User me = findUser(email);
-        if (me.activeWalkStatus() != WalkStatus.WALKING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are not out walking right now");
+        WalkStatus status = me.activeWalkStatus();
+        if (status == null || !status.isOutAndAbout()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are not out right now");
         }
 
-        List<String> dogs = dogRepository.findByOwner(me).stream().map(Dog::getName).toList();
-        String what = dogs.isEmpty() ? "their dog" : String.join(" and ", dogs);
-        String title = me.getName() + " is walking " + what + " 🐾";
+        String title = inviteTitle(me, status);
 
         for (var match : matchRepository.findAllMatchesForUser(me.getId())) {
             User other = match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1();
@@ -351,6 +415,31 @@ public class UserService {
                     "otherUserId", me.getId(),
                     "name", me.getName()));
         }
+    }
+
+    /**
+     * Whose dogs the status is about: your own when you are walking them, and the
+     * one you are looking after when you are sitting.
+     */
+    /** Says what is actually happening, since "walking" is now only one of three ways to be out. */
+    private String inviteTitle(User me, WalkStatus status) {
+        List<String> dogs = dogsNamedBy(me);
+        String what = dogs.isEmpty() ? "their dog" : String.join(" and ", dogs);
+        String where = me.getWalkStatusPlaceName() == null ? "" : " at " + me.getWalkStatusPlaceName();
+
+        return switch (status) {
+            case AT_THE_PARK -> me.getName() + " is at the park with " + what + where + " 🐾";
+            case SITTING -> me.getName() + " is out with " + what + where + " 🐾";
+            default -> me.getName() + " is walking " + what + where + " 🐾";
+        };
+    }
+
+    private List<String> dogsNamedBy(User user) {
+        if (user.activeWalkStatus() == WalkStatus.SITTING) {
+            return user.getWalkStatusDog() == null
+                    ? List.of() : List.of(user.getWalkStatusDog().getName());
+        }
+        return dogRepository.findByOwner(user).stream().map(Dog::getName).toList();
     }
 
     /** -1 where either side has no point to measure from — the row then hides the distance. */

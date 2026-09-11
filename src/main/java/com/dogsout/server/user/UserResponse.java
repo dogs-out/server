@@ -35,5 +35,10 @@ public record UserResponse(
         boolean termsAccepted,
         /** Null once it has expired — see UserService.activeStatus. */
         String walkStatus,
-        java.time.Instant walkStatusExpiresAt
+        java.time.Instant walkStatusExpiresAt,
+        /** The three below let the status screen open on what is already set. */
+        Double walkStatusLatitude,
+        Double walkStatusLongitude,
+        String walkStatusPlaceName,
+        Long walkStatusDogId
 ) {}
