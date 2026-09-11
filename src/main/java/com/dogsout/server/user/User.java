@@ -49,20 +49,21 @@ public class User {
      * every read compares against the clock, and a status simply stops counting.
      */
     /**
-     * ⚠️ Adding a value to {@link WalkStatus} needs a manual step in production.
+     * ⚠️ Adding a value to any {@code @Enumerated(EnumType.STRING)} field in this
+     * codebase is a production-breaking change that passes every local test.
      *
-     * <p>Hibernate generates {@code CHECK (walk_status IN (...))} listing the
-     * values that existed when the column was created, and {@code ddl-auto=update}
-     * never alters an existing constraint. AT_THE_PARK and SITTING therefore
-     * failed with a 500 against production while a freshly created local database
-     * accepted them — the schemas had silently diverged.
+     * <p>Hibernate generates {@code CHECK (col IN (...))} from the values that
+     * existed when the column was created, and {@code ddl-auto=update} never
+     * alters an existing constraint. A local database created after the change
+     * knows the new value; production does not, and rejects it with a 500. That
+     * is exactly how AT_THE_PARK and SITTING failed on 2026-09-11.
      *
-     * <p>Production's constraint was dropped on 2026-09-11 and, because update
-     * mode only creates constraints alongside a new table, it does not come back.
-     * The same trap is still armed on every other enum column here: matches.status,
-     * playdates.status, playdates.visibility, playdate_participants.status,
-     * users.role and users.auth_provider. Drop the check before shipping a new
-     * value for any of them.
+     * <p>The stale checks were dropped from production rather than rewritten —
+     * update mode only emits constraints alongside a new table, so once dropped
+     * they stay gone and further values need no migration. If a check ever exists
+     * on an enum column again, drop it before shipping a new value. An explicit
+     * {@code columnDefinition} does not help: Hibernate 6.6 emits the check
+     * regardless, verified against a scratch database.
      */
     @Enumerated(EnumType.STRING)
     private WalkStatus walkStatus;
