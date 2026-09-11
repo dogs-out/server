@@ -70,6 +70,15 @@ public class DogService {
         dogPhotoRepository.deleteAll(photos);
         dogRepository.delete(dog);
         keys.forEach(photoService::delete);
+
+        // The flag claims something the account no longer backs up. Left alone it
+        // kept Discover open to someone with no dog in it — they swiped, matched,
+        // and showed up in other people's decks as a card with no dog on it.
+        User owner = dog.getOwner();
+        if (owner != null && dogRepository.countByOwner(owner) == 0) {
+            owner.setHasDog(false);
+            userRepository.save(owner);
+        }
     }
 
     public DogPhotoResponse addPhoto(String email, Long dogId, MultipartFile file) {

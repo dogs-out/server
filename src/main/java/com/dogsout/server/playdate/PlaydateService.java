@@ -101,6 +101,7 @@ public class PlaydateService {
                 request.address(), request.latitude(), request.longitude(),
                 request.startsAt(), request.maxParticipants());
         playdate.setVisibility(request.visibility());
+        playdate.setSittersWelcome(request.sittersWelcome() == null || request.sittersWelcome());
         playdate.setStatus(PlaydateStatus.ACTIVE);
         Playdate saved = playdateRepository.save(playdate);
 
@@ -120,6 +121,7 @@ public class PlaydateService {
         applyDetails(playdate, request.title(), request.description(), request.parkName(),
                 request.address(), request.latitude(), request.longitude(),
                 request.startsAt(), request.maxParticipants());
+        if (request.sittersWelcome() != null) playdate.setSittersWelcome(request.sittersWelcome());
         playdateRepository.save(playdate);
         notifyMembers(playdate, me, ParticipantStatus.JOINED, "Playdate updated 🐾",
                 hostLabel(playdate) + " changed the details of \"" + displayName(playdate) + "\"",
@@ -147,6 +149,7 @@ public class PlaydateService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are hosting this playdate");
         }
         requireActiveAndUpcoming(playdate);
+        requireEligibleToJoin(playdate, me);
 
         Optional<PlaydateParticipant> existing = participantRepository.findByPlaydateAndUser(playdate, me);
         if (playdate.getVisibility() == PlaydateVisibility.INVITE_ONLY && existing.isEmpty()) {
@@ -179,6 +182,30 @@ public class PlaydateService {
                     Map.of("type", "PLAYDATE_JOINED", PLAYDATE_ID_KEY, playdate.getId()));
         }
         return toResponse(playdate, me, true);
+    }
+
+    /**
+     * Who is allowed at a playdate.
+     *
+     * <p>Dog owners, always — it is their meetup. Dogsitters only where the host
+     * has left them welcome, because a sitter arrives without a dog and that is
+     * the host's call to make. Anyone who is neither, never: an account with no
+     * dog and no sitting role has no reason to be at a meeting of dog owners, and
+     * "turn up in a park at a stated time" is exactly the kind of thing that
+     * should not be open to a passer-by with an account.
+     */
+    private void requireEligibleToJoin(Playdate playdate, User user) {
+        if (!Boolean.FALSE.equals(user.getHasDog())) return;
+
+        if (!Boolean.TRUE.equals(user.getIsSitter())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Playdates are for dog owners and dogsitters");
+        }
+        // Null means welcome — see the note on the field.
+        if (Boolean.FALSE.equals(playdate.getSittersWelcome())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "This host is not expecting dogsitters at this playdate");
+        }
     }
 
     public void leave(String email, Long id) {
@@ -465,6 +492,7 @@ public class PlaydateService {
                 playdate.getLongitude(),
                 playdate.getStartsAt(),
                 playdate.getMaxParticipants(),
+                !Boolean.FALSE.equals(playdate.getSittersWelcome()),
                 playdate.getVisibility().name(),
                 playdate.getStatus().name(),
                 joinedCount,

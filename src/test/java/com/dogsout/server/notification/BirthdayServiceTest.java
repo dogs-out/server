@@ -1,8 +1,9 @@
-package com.dogsout.server.dog;
+package com.dogsout.server.notification;
 
+import com.dogsout.server.dog.Dog;
+import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.matching.Match;
 import com.dogsout.server.matching.MatchRepository;
-import com.dogsout.server.notification.PushNotificationService;
 import com.dogsout.server.user.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,13 +34,14 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class DogBirthdayServiceTest {
+class BirthdayServiceTest {
 
     @Mock private DogRepository dogRepository;
+    @Mock private com.dogsout.server.user.UserRepository userRepository;
     @Mock private MatchRepository matchRepository;
     @Mock private PushNotificationService pushNotificationService;
 
-    @InjectMocks private DogBirthdayService service;
+    @InjectMocks private BirthdayService service;
 
     private static User user(long id, String name) {
         User u = new User();
@@ -63,6 +65,7 @@ class DogBirthdayServiceTest {
         dog.setDateOfBirth(born);
         dog.setOwner(owner);
         when(dogRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of(dog));
+        when(userRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of());
         return dog;
     }
 
@@ -79,10 +82,29 @@ class DogBirthdayServiceTest {
         service.greetTodaysBirthdays();
 
         ArgumentCaptor<User> notified = ArgumentCaptor.forClass(User.class);
-        verify(pushNotificationService, times(2)).send(notified.capture(), anyString(), anyString(), any());
+        // Both matches, plus the owner — theirs is a greeting rather than a prompt.
+        verify(pushNotificationService, times(3)).send(notified.capture(), anyString(), anyString(), any());
         assertThat(notified.getAllValues()).extracting(User::getName)
-                .containsExactlyInAnyOrder("Lena", "Jonas")
-                .doesNotContain("Moritz");
+                .containsExactlyInAnyOrder("Lena", "Jonas", "Moritz");
+    }
+
+    @Test
+    void greetsAPersonsOwnBirthdayToTheirMatches() {
+        User birthdayPerson = user(1L, "Moritz");
+        birthdayPerson.setDateOfBirth(LocalDate.now().minusYears(30));
+        when(dogRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        when(userRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of(birthdayPerson));
+        when(matchRepository.findAllMatchesForUser(1L))
+                .thenReturn(List.of(match(10L, birthdayPerson, user(2L, "Lena"))));
+
+        service.greetTodaysBirthdays();
+
+        ArgumentCaptor<String> title = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<User> notified = ArgumentCaptor.forClass(User.class);
+        verify(pushNotificationService).send(notified.capture(), title.capture(), anyString(), any());
+        assertThat(notified.getValue().getName()).isEqualTo("Lena");
+        assertThat(title.getValue()).isEqualTo("Moritz turns 30 today 🎂");
+        assertThat(birthdayPerson.getBirthdayGreetedYear()).isEqualTo(LocalDate.now().getYear());
     }
 
     @Test
@@ -94,8 +116,8 @@ class DogBirthdayServiceTest {
         service.greetTodaysBirthdays();
 
         ArgumentCaptor<String> title = ArgumentCaptor.forClass(String.class);
-        verify(pushNotificationService).send(any(), title.capture(), anyString(), any());
-        assertThat(title.getValue()).isEqualTo("Luna turns 5 today 🎂");
+        verify(pushNotificationService, times(2)).send(any(), title.capture(), anyString(), any());
+        assertThat(title.getAllValues()).containsOnly("Luna turns 5 today 🎂");
     }
 
     @Test
@@ -108,8 +130,8 @@ class DogBirthdayServiceTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> data = ArgumentCaptor.forClass(Map.class);
-        verify(pushNotificationService).send(any(), anyString(), anyString(), data.capture());
-        assertThat(data.getValue())
+        verify(pushNotificationService, times(2)).send(any(), anyString(), anyString(), data.capture());
+        assertThat(data.getAllValues().get(0))
                 .containsEntry("type", "DOG_BIRTHDAY")
                 .containsEntry("matchId", 42L)
                 .containsEntry("otherUserId", 1L);
@@ -130,6 +152,7 @@ class DogBirthdayServiceTest {
     @Test
     void saysNothingWhenNoDogHasABirthday() {
         when(dogRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of());
+        when(userRepository.findBirthdaysOn(anyInt(), anyInt(), anyInt())).thenReturn(List.of());
 
         service.greetTodaysBirthdays();
 

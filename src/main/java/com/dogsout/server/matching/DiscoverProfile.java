@@ -21,5 +21,13 @@ public record DiscoverProfile(
         List<String> sitterWeekdays,
         Integer sitterExperienceYears,
         List<String> sitterTags,
-        boolean lookingForSitter
+        boolean lookingForSitter,
+        /**
+         * True when this person, or one of their dogs, has a birthday today.
+         *
+         * <p>A boolean rather than the date: the exact birth date is deliberately
+         * never exposed anywhere in this DTO, and the app only needs to know
+         * whether to dress the chat up.
+         */
+        boolean celebratingToday
 ) {}

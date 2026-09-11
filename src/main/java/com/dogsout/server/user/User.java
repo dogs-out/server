@@ -33,6 +33,9 @@ public class User {
 
     private LocalDate dateOfBirth;
 
+    /** See Dog.birthdayGreetedYear — same marker, same reason. */
+    private Integer birthdayGreetedYear;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 

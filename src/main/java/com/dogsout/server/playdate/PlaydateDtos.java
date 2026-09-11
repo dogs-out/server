@@ -22,6 +22,7 @@ public final class PlaydateDtos {
             @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
             @NotNull Instant startsAt,
             Integer maxParticipants,
+            Boolean sittersWelcome,
             @NotNull PlaydateVisibility visibility,
             List<Long> inviteUserIds
     ) {}
@@ -34,7 +35,8 @@ public final class PlaydateDtos {
             @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double latitude,
             @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
             @NotNull Instant startsAt,
-            Integer maxParticipants
+            Integer maxParticipants,
+            Boolean sittersWelcome
     ) {}
 
     public record ParticipantResponse(
@@ -57,6 +59,7 @@ public final class PlaydateDtos {
             Double longitude,
             Instant startsAt,
             Integer maxParticipants,
+            boolean sittersWelcome,
             String visibility,
             String status,
             int joinedCount,

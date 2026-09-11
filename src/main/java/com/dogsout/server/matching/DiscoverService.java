@@ -207,8 +207,23 @@ public class DiscoverService {
                 isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 isSitter ? u.getSitterExperienceYears() : null,
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
-                Boolean.TRUE.equals(u.getLookingForSitter())
+                Boolean.TRUE.equals(u.getLookingForSitter()),
+                celebratingToday(u)
         );
+    }
+
+    /** Their own birthday, or one of their dogs'. Compared on month and day only. */
+    private boolean celebratingToday(User u) {
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
+        if (isSameDayOfYear(u.getDateOfBirth(), today)) return true;
+        return dogRepository.findByOwner(u).stream()
+                .anyMatch(dog -> isSameDayOfYear(dog.getDateOfBirth(), today));
+    }
+
+    private static boolean isSameDayOfYear(java.time.LocalDate date, java.time.LocalDate today) {
+        return date != null
+                && date.getMonthValue() == today.getMonthValue()
+                && date.getDayOfMonth() == today.getDayOfMonth();
     }
 
     private boolean passesDogAgeFilter(User u, Integer minDogAge, Integer maxDogAge) {

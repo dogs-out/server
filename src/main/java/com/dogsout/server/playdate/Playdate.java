@@ -46,6 +46,14 @@ public class Playdate {
 
     private Integer maxParticipants;
 
+    /**
+     * Whether dogsitters without a dog of their own may join.
+     *
+     * <p>Null means yes: the column arrives after playdates already existed, and
+     * those were open to everyone, so null preserves what their hosts agreed to.
+     */
+    private Boolean sittersWelcome;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PlaydateVisibility visibility;

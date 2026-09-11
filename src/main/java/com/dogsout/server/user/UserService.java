@@ -74,9 +74,9 @@ public class UserService {
         if (request.sitterWeekdays() != null)     user.setSitterWeekdays(request.sitterWeekdays().isEmpty() ? null : String.join("||", request.sitterWeekdays()));
         if (request.sitterExperienceYears() != null) user.setSitterExperienceYears(request.sitterExperienceYears());
         if (request.sitterTags() != null)         user.setSitterTags(request.sitterTags().isEmpty() ? null : String.join("||", request.sitterTags()));
-        if (Boolean.FALSE.equals(user.getHasDog()) && !Boolean.TRUE.equals(user.getIsSitter())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You must either have a dog or be available as a sitter");
-        }
+        // Deliberately no "you must have a dog or be a sitter" rule any more. Losing
+        // your last dog is a real thing that happens, and the app's answer to it is
+        // the add-or-adopt screen, not a profile that refuses to save.
         if (request.maxDistanceKm() != null)      user.setMaxDistanceKm(request.maxDistanceKm() <= 0 ? null : request.maxDistanceKm());
         if (request.minAge() != null)             user.setMinAge(request.minAge() <= 0 ? null : request.minAge());
         if (request.maxAge() != null)             user.setMaxAge(request.maxAge() <= 0 ? null : request.maxAge());
