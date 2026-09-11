@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -59,6 +60,18 @@ public class UserController {
     public ResponseEntity<UserResponse> updateStatus(
             Authentication auth, @Valid @RequestBody UpdateStatusRequest request) {
         return ResponseEntity.ok(userService.updateStatus(auth.getName(), request));
+    }
+
+    /** Matches who are out walking and shared where — the "who's outside" list. */
+    @GetMapping("/walking")
+    public ResponseEntity<List<WalkingFriend>> walkingFriends(Authentication auth) {
+        return ResponseEntity.ok(userService.walkingFriends(auth.getName()));
+    }
+
+    @PostMapping("/me/status/invite")
+    public ResponseEntity<Void> inviteMatchesToWalk(Authentication auth) {
+        userService.inviteMatchesToWalk(auth.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/me/terms")

@@ -40,6 +40,7 @@ public class UserService {
     private final BlockRepository blockRepository;
     private final com.dogsout.server.playdate.PlaydateService playdateService;
     private final PhotoService photoService;
+    private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -291,6 +292,68 @@ public class UserService {
         return toResponse(user);
     }
 
+
+    /**
+     * Matches of this user who are out walking and have shared where.
+     *
+     * <p>Matches only, and that is the whole safety model: a live-ish location is
+     * not something to hand to everyone within a radius, and a match is the app's
+     * existing record that both people agreed to be in contact.
+     */
+    @Transactional(readOnly = true)
+    public List<WalkingFriend> walkingFriends(String email) {
+        User me = findUser(email);
+
+        return matchRepository.findAllMatchesForUser(me.getId()).stream()
+                .map(match -> match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1())
+                .filter(other -> other.activeWalkStatus() == WalkStatus.WALKING)
+                .filter(other -> other.getWalkStatusLatitude() != null && other.getWalkStatusLongitude() != null)
+                .map(other -> new WalkingFriend(
+                        other.getId(),
+                        other.getName(),
+                        photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
+                        dogRepository.findByOwner(other).stream().map(Dog::getName).toList(),
+                        other.getWalkStatusLatitude(),
+                        other.getWalkStatusLongitude(),
+                        other.getWalkStatusExpiresAt(),
+                        distanceTo(me, other)))
+                .sorted(java.util.Comparator.comparingDouble(WalkingFriend::distanceKm))
+                .toList();
+    }
+
+    /**
+     * Tells this user's matches that they are out, once they ask for it.
+     *
+     * <p>Deliberately a separate action rather than a side effect of setting the
+     * status: someone who walks twice a day would otherwise push everyone they
+     * have matched with twice a day, and that is how people learn to turn
+     * notifications off for good.
+     */
+    public void inviteMatchesToWalk(String email) {
+        User me = findUser(email);
+        if (me.activeWalkStatus() != WalkStatus.WALKING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are not out walking right now");
+        }
+
+        List<String> dogs = dogRepository.findByOwner(me).stream().map(Dog::getName).toList();
+        String what = dogs.isEmpty() ? "their dog" : String.join(" and ", dogs);
+        String title = me.getName() + " is walking " + what + " 🐾";
+
+        for (var match : matchRepository.findAllMatchesForUser(me.getId())) {
+            User other = match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1();
+            pushNotificationService.send(other, title, "Want to join?", java.util.Map.of(
+                    "type", "WALK_INVITE",
+                    "matchId", match.getId(),
+                    "otherUserId", me.getId(),
+                    "name", me.getName()));
+        }
+    }
+
+    private double distanceTo(User me, User other) {
+        if (me.getLatitude() == null || me.getLongitude() == null) return -1;
+        return Math.round(com.dogsout.server.GeoUtil.distanceKm(
+                me.getLatitude(), me.getLongitude(), other.getWalkStatusLatitude(), other.getWalkStatusLongitude()));
+    }
 
     /**
      * Records that this account has accepted the terms.
