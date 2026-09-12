@@ -33,7 +33,10 @@ public record UserResponse(
         Integer maxDogAge,
         Boolean notificationsEnabled,
         boolean termsAccepted,
-        /** Null once it has expired — see UserService.activeStatus. */
+        /**
+         * Never null: an account that has not picked one reads as AT_HOME, which
+         * is where everyone starts. Expired statuses fall back to it too.
+         */
         String walkStatus,
         java.time.Instant walkStatusExpiresAt,
         /** The three below let the status screen open on what is already set. */
@@ -41,6 +44,8 @@ public record UserResponse(
         Double walkStatusLongitude,
         String walkStatusPlaceName,
         Long walkStatusDogId,
+        /** Optional photo attached to the current status. */
+        String walkStatusPhoto,
         /** Today is this account's birthday, or one of its dogs'. Month and day only. */
         boolean celebratingToday,
         /** Today is the person's own birthday. */

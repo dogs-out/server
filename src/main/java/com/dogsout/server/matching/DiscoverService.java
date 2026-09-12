@@ -209,7 +209,8 @@ public class DiscoverService {
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter()),
                 celebratingToday(u),
-                u.activeWalkStatus() == null ? null : u.activeWalkStatus().name()
+                // Never null: somebody who has not picked a status is at home.
+                com.dogsout.server.user.WalkStatus.orDefault(u.activeWalkStatus()).name()
         );
     }
 

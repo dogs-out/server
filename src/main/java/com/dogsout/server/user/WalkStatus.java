@@ -40,6 +40,29 @@ public enum WalkStatus {
         return maxHours;
     }
 
+    /**
+     * Where everyone starts. An account that never picked a status is at home
+     * rather than nowhere — "no status" is not a thing anyone means, and a list
+     * of blanks says less than a list of people who are simply in.
+     */
+    public static final WalkStatus DEFAULT = AT_HOME;
+
+    /** Reads a stored status, which may be absent, as something to show. */
+    public static WalkStatus orDefault(WalkStatus status) {
+        return status == null ? DEFAULT : status;
+    }
+
+    /**
+     * Whether this status runs out on its own.
+     *
+     * <p>Being at home is the resting state, so it stands until something else is
+     * chosen. Everything else is a claim about right now and has to expire, or
+     * the app ends up showing someone walking a dog at three in the morning.
+     */
+    public boolean expires() {
+        return this != AT_HOME;
+    }
+
     /** Clamps rather than rejects: a duration slightly out of range is not worth failing a request over. */
     public int clampHours(Integer hours) {
         if (hours == null) return minHours;

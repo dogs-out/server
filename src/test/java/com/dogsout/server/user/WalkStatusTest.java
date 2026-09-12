@@ -97,6 +97,40 @@ class WalkStatusTest {
     }
 
     @Test
+    void anAccountThatNeverPickedOneIsAtHome() {
+        // Not "no status": everybody is somewhere, and a list of blanks says less
+        // than a list of people who are simply in.
+        assertThat(WalkStatus.orDefault(null)).isEqualTo(WalkStatus.AT_HOME);
+        assertThat(WalkStatus.DEFAULT).isEqualTo(WalkStatus.AT_HOME);
+    }
+
+    @Test
+    void anExplicitStatusIsLeftAlone() {
+        for (WalkStatus status : WalkStatus.values()) {
+            assertThat(WalkStatus.orDefault(status)).isEqualTo(status);
+        }
+    }
+
+    @Test
+    void beingAtHomeDoesNotRunOut() {
+        // The resting state stands until something else is chosen. Everything
+        // else is a claim about right now, or the app shows someone walking a
+        // dog at three in the morning.
+        assertThat(WalkStatus.AT_HOME.expires()).isFalse();
+        assertThat(WalkStatus.WALKING.expires()).isTrue();
+        assertThat(WalkStatus.AT_THE_PARK.expires()).isTrue();
+        assertThat(WalkStatus.SITTING.expires()).isTrue();
+        assertThat(WalkStatus.ON_VACATION.expires()).isTrue();
+        assertThat(WalkStatus.BUSY.expires()).isTrue();
+    }
+
+    @Test
+    void aStatusWithNoExpiryStandsIndefinitely() {
+        User u = withStatus(WalkStatus.AT_HOME, null);
+        assertThat(u.activeWalkStatus()).isEqualTo(WalkStatus.AT_HOME);
+    }
+
+    @Test
     void everyRangeIsOrdered() {
         for (WalkStatus status : WalkStatus.values()) {
             assertThat(status.minHours())

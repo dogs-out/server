@@ -68,7 +68,14 @@ public class User {
     @Enumerated(EnumType.STRING)
     private WalkStatus walkStatus;
 
+    /** Null means it does not expire — see WalkStatus.expires. */
     private Instant walkStatusExpiresAt;
+
+    /**
+     * Optional photo attached to the status: what the park looks like today, or
+     * the dog mid-zoomie. Stored like every other photo, as an object key.
+     */
+    private String walkStatusPhotoKey;
 
     /** Optional, and only ever set for the statuses that may carry a point. */
     private Double walkStatusLatitude;

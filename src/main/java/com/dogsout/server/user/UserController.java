@@ -74,10 +74,23 @@ public class UserController {
         return ResponseEntity.ok(userService.sittableDogs(auth.getName()));
     }
 
+    /** Empty or absent userIds means every match; otherwise only those, and only if matched. */
     @PostMapping("/me/status/invite")
-    public ResponseEntity<Void> inviteMatchesToWalk(Authentication auth) {
-        userService.inviteMatchesToWalk(auth.getName());
+    public ResponseEntity<Void> inviteMatchesToWalk(
+            Authentication auth, @RequestBody(required = false) InviteToWalkRequest request) {
+        userService.inviteMatchesToWalk(auth.getName(), request == null ? null : request.userIds());
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping(value = "/me/status/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserResponse> setStatusPhoto(
+            Authentication auth, @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(userService.setStatusPhoto(auth.getName(), file));
+    }
+
+    @DeleteMapping("/me/status/photo")
+    public ResponseEntity<UserResponse> removeStatusPhoto(Authentication auth) {
+        return ResponseEntity.ok(userService.removeStatusPhoto(auth.getName()));
     }
 
     @PostMapping("/me/terms")

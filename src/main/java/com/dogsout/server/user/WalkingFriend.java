@@ -23,6 +23,8 @@ public record WalkingFriend(
         Double longitude,
         /** What the point is called, when it was picked on the map rather than measured. */
         String placeName,
+        /** Optional photo they attached to the status. */
+        String photo,
         Instant until,
         /** Rounded, like everywhere else — see DiscoverService.coarseDistanceKm; -1 when unknown. */
         double distanceKm

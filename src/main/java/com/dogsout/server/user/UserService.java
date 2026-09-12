@@ -261,13 +261,15 @@ public class UserService {
                 user.getMaxDogAge(),
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
                 user.getTermsAcceptedAt() != null,
-                user.activeWalkStatus() == null ? null : user.activeWalkStatus().name(),
+                WalkStatus.orDefault(user.activeWalkStatus()).name(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusExpiresAt(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusLatitude(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusLongitude(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusPlaceName(),
                 user.activeWalkStatus() == null || user.getWalkStatusDog() == null
                         ? null : user.getWalkStatusDog().getId(),
+                user.activeWalkStatus() == null
+                        ? null : photoService.url(user.getWalkStatusPhotoKey(), PhotoRendition.FEED),
                 celebratingToday(user),
                 isSameDayOfYear(user.getDateOfBirth(), LocalDate.now(ZoneId.systemDefault())),
                 dogBirthdaysToday(user)
@@ -285,12 +287,20 @@ public class UserService {
     public UserResponse updateStatus(String email, UpdateStatusRequest request) {
         User user = findUser(email);
 
+        // A photo belongs to the status it was taken for, so changing the status
+        // drops it rather than leaving yesterday's park attached to tonight's.
+        String previousPhoto = user.getWalkStatusPhotoKey();
+
         if (request.status() == null) {
             clearStatus(user);
         } else {
             WalkStatus status = request.status();
             user.setWalkStatus(status);
-            user.setWalkStatusExpiresAt(Instant.now().plus(Duration.ofHours(status.clampHours(request.hours()))));
+            // At home is the resting state and stands until something else is
+            // chosen; everything else is a claim about right now and must expire.
+            user.setWalkStatusExpiresAt(status.expires()
+                    ? Instant.now().plus(Duration.ofHours(status.clampHours(request.hours())))
+                    : null);
 
             boolean sharesPoint = status.mayShareLocation()
                     && request.latitude() != null && request.longitude() != null;
@@ -298,8 +308,13 @@ public class UserService {
             user.setWalkStatusLongitude(sharesPoint ? request.longitude() : null);
             user.setWalkStatusPlaceName(sharesPoint ? trimToNull(request.placeName()) : null);
             user.setWalkStatusDog(status.needsSatDog() ? requireSittableDog(user, request.dogId()) : null);
+            // Keeping the photo is opt-in, so a plain status update clears it.
+            user.setWalkStatusPhotoKey(Boolean.TRUE.equals(request.keepPhoto()) ? previousPhoto : null);
         }
         userRepository.save(user);
+        if (previousPhoto != null && !previousPhoto.equals(user.getWalkStatusPhotoKey())) {
+            photoService.delete(previousPhoto);
+        }
         return toResponse(user);
     }
 
@@ -310,12 +325,40 @@ public class UserService {
         user.setWalkStatusLongitude(null);
         user.setWalkStatusPlaceName(null);
         user.setWalkStatusDog(null);
+        user.setWalkStatusPhotoKey(null);
     }
 
     private static String trimToNull(String value) {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * Attaches a photo to the current status.
+     *
+     * <p>Separate from setting the status because it is a file upload, and because
+     * it is optional — most statuses will never have one.
+     */
+    public UserResponse setStatusPhoto(String email, MultipartFile file) {
+        User user = findUser(email);
+        if (user.activeWalkStatus() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Set a status before adding a photo to it");
+        }
+        String previous = user.getWalkStatusPhotoKey();
+        user.setWalkStatusPhotoKey(photoService.store(PhotoService.OWNER_USER, file));
+        userRepository.save(user);
+        if (previous != null) photoService.delete(previous);
+        return toResponse(user);
+    }
+
+    public UserResponse removeStatusPhoto(String email) {
+        User user = findUser(email);
+        String previous = user.getWalkStatusPhotoKey();
+        user.setWalkStatusPhotoKey(null);
+        userRepository.save(user);
+        if (previous != null) photoService.delete(previous);
+        return toResponse(user);
     }
 
     /**
@@ -386,6 +429,7 @@ public class UserService {
                         other.getWalkStatusLatitude(),
                         other.getWalkStatusLongitude(),
                         other.getWalkStatusPlaceName(),
+                        photoService.url(other.getWalkStatusPhotoKey(), PhotoRendition.FEED),
                         other.getWalkStatusExpiresAt(),
                         distanceTo(me, other)))
                 // Nearest first, with the ones who shared no point after them rather
@@ -403,7 +447,7 @@ public class UserService {
      * have matched with twice a day, and that is how people learn to turn
      * notifications off for good.
      */
-    public void inviteMatchesToWalk(String email) {
+    public void inviteMatchesToWalk(String email, List<Long> userIds) {
         User me = findUser(email);
         WalkStatus status = me.activeWalkStatus();
         if (status == null || !status.isOutAndAbout()) {
@@ -411,9 +455,15 @@ public class UserService {
         }
 
         String title = inviteTitle(me, status);
+        // An empty or absent selection means everyone. Anything else is filtered
+        // against the matches rather than trusted: this endpoint's whole safety
+        // property is that it can only ever reach people who already agreed.
+        boolean everyone = userIds == null || userIds.isEmpty();
 
         for (var match : matchRepository.findAllMatchesForUser(me.getId())) {
             User other = match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1();
+            if (!everyone && !userIds.contains(other.getId())) continue;
+
             pushNotificationService.send(other, title, "Want to join?", java.util.Map.of(
                     "type", "WALK_INVITE",
                     "matchId", match.getId(),
