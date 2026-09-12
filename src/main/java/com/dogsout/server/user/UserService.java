@@ -268,7 +268,9 @@ public class UserService {
                 user.activeWalkStatus() == null ? null : user.getWalkStatusPlaceName(),
                 user.activeWalkStatus() == null || user.getWalkStatusDog() == null
                         ? null : user.getWalkStatusDog().getId(),
-                celebratingToday(user)
+                celebratingToday(user),
+                isSameDayOfYear(user.getDateOfBirth(), LocalDate.now(ZoneId.systemDefault())),
+                dogBirthdaysToday(user)
         );
     }
 
@@ -451,9 +453,16 @@ public class UserService {
      */
     private boolean celebratingToday(User user) {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        if (isSameDayOfYear(user.getDateOfBirth(), today)) return true;
+        return isSameDayOfYear(user.getDateOfBirth(), today) || !dogBirthdaysToday(user).isEmpty();
+    }
+
+    /** Which of their dogs has a birthday today — the greeting needs the name, not a count. */
+    private List<String> dogBirthdaysToday(User user) {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
         return dogRepository.findByOwner(user).stream()
-                .anyMatch(dog -> isSameDayOfYear(dog.getDateOfBirth(), today));
+                .filter(dog -> isSameDayOfYear(dog.getDateOfBirth(), today))
+                .map(Dog::getName)
+                .toList();
     }
 
     private static boolean isSameDayOfYear(LocalDate date, LocalDate today) {

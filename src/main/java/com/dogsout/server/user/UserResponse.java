@@ -42,5 +42,9 @@ public record UserResponse(
         String walkStatusPlaceName,
         Long walkStatusDogId,
         /** Today is this account's birthday, or one of its dogs'. Month and day only. */
-        boolean celebratingToday
+        boolean celebratingToday,
+        /** Today is the person's own birthday. */
+        boolean birthdayToday,
+        /** Names of their dogs whose birthday is today, so a greeting can say which. */
+        java.util.List<String> dogBirthdaysToday
 ) {}
