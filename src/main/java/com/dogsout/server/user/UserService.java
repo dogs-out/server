@@ -409,33 +409,34 @@ public class UserService {
      * existing record that both people agreed to be in contact.
      */
     @Transactional(readOnly = true)
-    public List<WalkingFriend> walkingFriends(String email) {
+    public List<FriendStatus> friendStatuses(String email) {
         User me = findUser(email);
 
         return matchRepository.findAllMatchesForUser(me.getId()).stream()
                 .map(match -> match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1())
-                // A point is optional, so somebody out without one still belongs on
-                // the list — their row simply does not open a map.
-                .filter(other -> {
-                    WalkStatus status = other.activeWalkStatus();
-                    return status != null && status.isOutAndAbout();
-                })
-                .map(other -> new WalkingFriend(
+                // No filter at all: every match appears with whatever they are up
+                // to. A point is optional even for the ones who are out, so a row
+                // without one simply does not open a map.
+                .map(other -> new FriendStatus(
                         other.getId(),
                         other.getName(),
                         photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
                         dogsNamedBy(other),
-                        other.activeWalkStatus().name(),
+                        WalkStatus.orDefault(other.activeWalkStatus()).name(),
                         other.getWalkStatusLatitude(),
                         other.getWalkStatusLongitude(),
                         other.getWalkStatusPlaceName(),
                         photoService.url(other.getWalkStatusPhotoKey(), PhotoRendition.FEED),
                         other.getWalkStatusExpiresAt(),
                         distanceTo(me, other)))
-                // Nearest first, with the ones who shared no point after them rather
-                // than at the top, where a distance of -1 would otherwise put them.
-                .sorted(java.util.Comparator.comparingDouble(
-                        f -> f.distanceKm() < 0 ? Double.MAX_VALUE : f.distanceKm()))
+                // Whoever is out comes first — that is the part you can act on —
+                // then nearest first within each group, with the ones who shared no
+                // point after them rather than at the top, where a distance of -1
+                // would otherwise put them.
+                .sorted(java.util.Comparator
+                        .comparing((FriendStatus f) -> !WalkStatus.valueOf(f.status()).isOutAndAbout())
+                        .thenComparingDouble(f -> f.distanceKm() < 0 ? Double.MAX_VALUE : f.distanceKm())
+                        .thenComparing(FriendStatus::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 

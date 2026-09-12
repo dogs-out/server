@@ -62,10 +62,15 @@ public class UserController {
         return ResponseEntity.ok(userService.updateStatus(auth.getName(), request));
     }
 
-    /** Matches who are out right now — the "who's outside" list. */
+    /**
+     * Every match and their current status.
+     *
+     * <p>The path still says "walking" because builds already in testers' hands
+     * call it; the list stopped being only walkers, the URL has not.
+     */
     @GetMapping("/walking")
-    public ResponseEntity<List<WalkingFriend>> walkingFriends(Authentication auth) {
-        return ResponseEntity.ok(userService.walkingFriends(auth.getName()));
+    public ResponseEntity<List<FriendStatus>> friendStatuses(Authentication auth) {
+        return ResponseEntity.ok(userService.friendStatuses(auth.getName()));
     }
 
     /** The dogs this account may say it is looking after: those of its matches. */
