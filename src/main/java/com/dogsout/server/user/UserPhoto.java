@@ -35,6 +35,17 @@ public class UserPhoto {
 
     private Integer sortOrder;
 
+    /**
+     * Which part of the image is shown, as fractions of the whole — null means all
+     * of it. Stored beside the photo rather than baked into the pixels so that
+     * cropping in stays reversible: the file is always the full picture.
+     */
+    private Double cropX;
+    private Double cropY;
+    private Double cropWidth;
+    private Double cropHeight;
+
+
     public UserPhoto(User user, String storageKey, int sortOrder) {
         this.user = user;
         this.storageKey = storageKey;

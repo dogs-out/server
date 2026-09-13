@@ -3,6 +3,7 @@ package com.dogsout.server.dog;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import com.dogsout.server.photo.SetCropRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -55,6 +56,14 @@ public class DogController {
             @RequestPart("file") MultipartFile file
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(dogService.addPhoto(auth.getName(), id, file));
+    }
+
+    /** Reframes a photo without re-uploading it; all-null clears the crop. */
+    @PutMapping("/{id}/photos/{photoId}/crop")
+    public ResponseEntity<DogPhotoResponse> setPhotoCrop(
+            Authentication auth, @PathVariable Long id, @PathVariable Long photoId,
+            @RequestBody SetCropRequest request) {
+        return ResponseEntity.ok(dogService.setPhotoCrop(auth.getName(), id, photoId, request));
     }
 
     @DeleteMapping("/{id}/photos/{photoId}")

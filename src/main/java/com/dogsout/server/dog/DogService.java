@@ -1,6 +1,8 @@
 package com.dogsout.server.dog;
 
 import com.dogsout.server.ProfanityFilter;
+import com.dogsout.server.photo.CropRect;
+import com.dogsout.server.photo.SetCropRequest;
 import com.dogsout.server.photo.PhotoRendition;
 import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.User;
@@ -166,12 +168,37 @@ public class DogService {
         }
     }
 
+    /**
+     * Reframes a photo without touching the file.
+     *
+     * <p>This is the whole point of storing the rectangle: cropping in can be
+     * undone, because the picture underneath is still the whole picture.
+     */
+    public DogPhotoResponse setPhotoCrop(String email, Long dogId, Long photoId, SetCropRequest request) {
+        Dog dog = findDog(dogId);
+        assertOwner(email, dog);
+        DogPhoto photo = dogPhotoRepository.findById(photoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found"));
+        if (!photo.getDog().getId().equals(dog.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
+        }
+
+        CropRect rect = CropRect.of(request.x(), request.y(), request.width(), request.height());
+        photo.setCropX(rect == null ? null : rect.x());
+        photo.setCropY(rect == null ? null : rect.y());
+        photo.setCropWidth(rect == null ? null : rect.width());
+        photo.setCropHeight(rect == null ? null : rect.height());
+        dogPhotoRepository.save(photo);
+        return toPhotoResponse(photo);
+    }
+
     private DogPhotoResponse toPhotoResponse(DogPhoto photo) {
         return new DogPhotoResponse(
                 photo.getId(),
                 photoService.url(photo.getStorageKey(), PhotoRendition.FEED),
                 photoService.url(photo.getStorageKey(), PhotoRendition.THUMB),
-                photo.getSortOrder());
+                photo.getSortOrder(),
+                CropRect.of(photo.getCropX(), photo.getCropY(), photo.getCropWidth(), photo.getCropHeight()));
     }
 
     private DogResponse toResponse(Dog dog) {

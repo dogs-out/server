@@ -5,6 +5,7 @@ import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.dog.DogResponse;
 import com.dogsout.server.dog.DogPhotoResponse;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.photo.CropRect;
 import com.dogsout.server.photo.PhotoRendition;
 import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.*;
@@ -160,7 +161,8 @@ public class DiscoverService {
                         p.getId(),
                         photoService.url(p.getStorageKey(), PhotoRendition.FEED),
                         photoService.url(p.getStorageKey(), PhotoRendition.THUMB),
-                        p.getSortOrder())).toList();
+                        p.getSortOrder(),
+                        CropRect.of(p.getCropX(), p.getCropY(), p.getCropWidth(), p.getCropHeight()))).toList();
 
         List<DogResponse> dogs = dogRepository.findByOwner(u).stream()
                 .map(dog -> {
@@ -169,7 +171,8 @@ public class DiscoverService {
                                     p.getId(),
                                     photoService.url(p.getStorageKey(), PhotoRendition.FEED),
                                     photoService.url(p.getStorageKey(), PhotoRendition.THUMB),
-                                    p.getSortOrder())).toList();
+                                    p.getSortOrder(),
+                                    CropRect.of(p.getCropX(), p.getCropY(), p.getCropWidth(), p.getCropHeight()))).toList();
                     return new DogResponse(
                             dog.getId(), dog.getName(), dog.getBreed(), dog.getDateOfBirth(),
                             dog.getBio(), photoService.url(dog.getProfilePictureKey(), PhotoRendition.THUMB),

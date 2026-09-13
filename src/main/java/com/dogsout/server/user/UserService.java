@@ -7,6 +7,8 @@ import com.dogsout.server.dog.DogPhotoRepository;
 import com.dogsout.server.dog.DogRepository;
 import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.moderation.BlockRepository;
+import com.dogsout.server.photo.CropRect;
+import com.dogsout.server.photo.SetCropRequest;
 import com.dogsout.server.photo.PhotoRendition;
 import com.dogsout.server.photo.PhotoService;
 import lombok.RequiredArgsConstructor;
@@ -219,12 +221,31 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
+    /** Reframes a photo without touching the file — see DogService.setPhotoCrop. */
+    public UserPhotoResponse setPhotoCrop(String email, Long photoId, SetCropRequest request) {
+        User user = findUser(email);
+        UserPhoto photo = userPhotoRepository.findById(photoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found"));
+        if (!photo.getUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Photo not found");
+        }
+
+        CropRect rect = CropRect.of(request.x(), request.y(), request.width(), request.height());
+        photo.setCropX(rect == null ? null : rect.x());
+        photo.setCropY(rect == null ? null : rect.y());
+        photo.setCropWidth(rect == null ? null : rect.width());
+        photo.setCropHeight(rect == null ? null : rect.height());
+        userPhotoRepository.save(photo);
+        return toPhotoResponse(photo);
+    }
+
     private UserPhotoResponse toPhotoResponse(UserPhoto photo) {
         return new UserPhotoResponse(
                 photo.getId(),
                 photoService.url(photo.getStorageKey(), PhotoRendition.FEED),
                 photoService.url(photo.getStorageKey(), PhotoRendition.THUMB),
-                photo.getSortOrder());
+                photo.getSortOrder(),
+                CropRect.of(photo.getCropX(), photo.getCropY(), photo.getCropWidth(), photo.getCropHeight()));
     }
 
     private UserResponse toResponse(User user) {

@@ -4,6 +4,7 @@ import com.dogsout.server.auth.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import com.dogsout.server.photo.SetCropRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -121,6 +122,13 @@ public class UserController {
             @RequestPart("file") MultipartFile file
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.addPhoto(auth.getName(), file));
+    }
+
+    /** Reframes a photo without re-uploading it; all-null clears the crop. */
+    @PutMapping("/me/photos/{photoId}/crop")
+    public ResponseEntity<UserPhotoResponse> setPhotoCrop(
+            Authentication auth, @PathVariable Long photoId, @RequestBody SetCropRequest request) {
+        return ResponseEntity.ok(userService.setPhotoCrop(auth.getName(), photoId, request));
     }
 
     @DeleteMapping("/me/photos/{photoId}")
