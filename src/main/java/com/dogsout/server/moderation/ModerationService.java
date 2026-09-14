@@ -108,13 +108,14 @@ public class ModerationService {
                 Message from reporter: %s
 
                 ── Chat transcript ──────────────────────
-                %s""".formatted(
+                %s%s""".formatted(
                 me.getName(), me.getId(), me.getEmail(),
                 reported.getName(), reported.getId(), reported.getEmail(),
                 match.getId(),
                 request.reason(),
                 request.message() == null || request.message().isBlank() ? "(none)" : request.message().trim(),
-                transcript);
+                transcript,
+                photoLinks(reported, request.reason()));
 
         emailService.sendReportEmail(adminEmail,
                 "User report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
@@ -176,21 +177,38 @@ public class ModerationService {
     }
 
     /**
-     * Links to the reported photos, when the photos are what is being reported.
+     * The reports where the pictures are the thing to look at.
      *
-     * <p>Only then: a report about a name or a bio does not need someone's
-     * pictures in an inbox. When they are the point, the alternative is opening
-     * the app and hunting for the profile, which is slower and needs the account
-     * still to exist.
+     * <p>Inappropriate photos obviously. Fake profile too: a stolen or stock
+     * photograph is how that is judged, and a report saying so without them is
+     * a report nobody can act on.
      *
-     * <p>These are the ordinary photo URLs. They are already public — every user
-     * of the app loads them the same way — so the mail adds no access that did
-     * not exist, it only saves the search.
+     * <p>The client sends these strings verbatim in English; the contains check
+     * is a net for a future reason that is also about pictures.
+     */
+    private static final java.util.Set<String> PHOTO_REASONS =
+            java.util.Set.of("inappropriate photos", "fake profile");
+
+    private static boolean wantsPhotos(String reason) {
+        if (reason == null) return false;
+        String normalised = reason.trim().toLowerCase(java.util.Locale.ROOT);
+        return PHOTO_REASONS.contains(normalised) || normalised.contains("photo");
+    }
+
+    /**
+     * Links to the reported photos, for the reasons above.
+     *
+     * <p>Not for the rest: a report about a name or a bio has no business putting
+     * someone's pictures in an inbox. Where they are the point, the alternative
+     * is opening the app and hunting for the profile, which is slower and stops
+     * working once the account is gone.
+     *
+     * <p>These are the ordinary photo URLs. They are already public — every
+     * client loads them the same way — so the mail adds no access that did not
+     * exist, it only saves the search.
      */
     private String photoLinks(User reported, String reason) {
-        if (reason == null || !reason.toLowerCase(java.util.Locale.ROOT).contains("photo")) {
-            return "";
-        }
+        if (!wantsPhotos(reason)) return "";
 
         StringBuilder links = new StringBuilder("\n── Photos ──────────────────────────────\n");
         List<UserPhoto> own = userPhotoRepository.findByUserOrderBySortOrderAsc(reported);
