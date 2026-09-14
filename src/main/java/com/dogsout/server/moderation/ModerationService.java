@@ -8,6 +8,10 @@ import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.photo.PhotoRendition;
 import com.dogsout.server.photo.PhotoService;
 import com.dogsout.server.user.User;
+import com.dogsout.server.dog.Dog;
+import com.dogsout.server.dog.DogPhoto;
+import com.dogsout.server.photo.PhotoRendition;
+import com.dogsout.server.user.UserPhoto;
 import com.dogsout.server.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +40,7 @@ public class ModerationService {
     private final UserRepository userRepository;
     private final com.dogsout.server.dog.DogRepository dogRepository;
     private final com.dogsout.server.user.UserPhotoRepository userPhotoRepository;
+    private final com.dogsout.server.dog.DogPhotoRepository dogPhotoRepository;
     private final EmailService emailService;
     private final PhotoService photoService;
 
@@ -154,7 +159,7 @@ public class ModerationService {
                 Bio: %s
                 Dogs: %s
                 Photos: %d
-
+                %s
                 Reported from the profile itself, so there is no conversation to attach.""".formatted(
                 me.getName(), me.getId(), me.getEmail(),
                 reported.getName(), reported.getId(), reported.getEmail(),
@@ -163,10 +168,48 @@ public class ModerationService {
                 reported.getName(),
                 reported.getBio() == null || reported.getBio().isBlank() ? "(empty)" : reported.getBio(),
                 dogs,
-                userPhotoRepository.findByUserOrderBySortOrderAsc(reported).size());
+                userPhotoRepository.findByUserOrderBySortOrderAsc(reported).size(),
+                photoLinks(reported, request.reason()));
 
         emailService.sendReportEmail(adminEmail,
                 "Profile report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
+    }
+
+    /**
+     * Links to the reported photos, when the photos are what is being reported.
+     *
+     * <p>Only then: a report about a name or a bio does not need someone's
+     * pictures in an inbox. When they are the point, the alternative is opening
+     * the app and hunting for the profile, which is slower and needs the account
+     * still to exist.
+     *
+     * <p>These are the ordinary photo URLs. They are already public — every user
+     * of the app loads them the same way — so the mail adds no access that did
+     * not exist, it only saves the search.
+     */
+    private String photoLinks(User reported, String reason) {
+        if (reason == null || !reason.toLowerCase(java.util.Locale.ROOT).contains("photo")) {
+            return "";
+        }
+
+        StringBuilder links = new StringBuilder("\n── Photos ──────────────────────────────\n");
+        List<UserPhoto> own = userPhotoRepository.findByUserOrderBySortOrderAsc(reported);
+        if (own.isEmpty()) {
+            links.append("(no profile photos)\n");
+        }
+        for (UserPhoto photo : own) {
+            links.append(photoService.url(photo.getStorageKey(), PhotoRendition.FEED)).append('\n');
+        }
+
+        for (Dog dog : dogRepository.findByOwner(reported)) {
+            List<DogPhoto> dogPhotos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
+            if (dogPhotos.isEmpty()) continue;
+            links.append("\n%s:\n".formatted(dog.getName()));
+            for (DogPhoto photo : dogPhotos) {
+                links.append(photoService.url(photo.getStorageKey(), PhotoRendition.FEED)).append('\n');
+            }
+        }
+        return links.toString();
     }
 
     public void unmatch(String email, Long matchId) {
