@@ -53,6 +53,21 @@ public enum WalkStatus {
     }
 
     /**
+     * Whether this status may be left open-ended.
+     *
+     * <p>Being at home always is. Busy may be either: "busy for two hours" and
+     * "busy until further notice" are both real answers, and forcing the second
+     * into a duration means picking a number nobody knows.
+     *
+     * <p>The rest must run out. Walking, at a park or sitting a dog are claims
+     * about right now, and an open-ended one would still be showing at three in
+     * the morning.
+     */
+    public boolean mayBeIndefinite() {
+        return this == AT_HOME || this == BUSY;
+    }
+
+    /**
      * Whether this status runs out on its own.
      *
      * <p>Being at home is the resting state, so it stands until something else is

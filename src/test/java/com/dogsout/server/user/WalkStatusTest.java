@@ -131,6 +131,31 @@ class WalkStatusTest {
     }
 
     @Test
+    void busyMayBeOpenEndedAndAWalkMayNot() {
+        // "Busy for two hours" and "busy until further notice" are both real
+        // answers; forcing the second into a duration means inventing a number.
+        // A walk is a claim about right now and would otherwise still be showing
+        // at three in the morning.
+        assertThat(WalkStatus.BUSY.mayBeIndefinite()).isTrue();
+        assertThat(WalkStatus.AT_HOME.mayBeIndefinite()).isTrue();
+        assertThat(WalkStatus.WALKING.mayBeIndefinite()).isFalse();
+        assertThat(WalkStatus.AT_THE_PARK.mayBeIndefinite()).isFalse();
+        assertThat(WalkStatus.SITTING.mayBeIndefinite()).isFalse();
+        assertThat(WalkStatus.ON_VACATION.mayBeIndefinite()).isFalse();
+    }
+
+    @Test
+    void anythingOpenEndedIsAlsoAllowedToBeOpenEnded() {
+        // A status that never expires had better be one that may be indefinite,
+        // or the two rules disagree about the same state.
+        for (WalkStatus status : WalkStatus.values()) {
+            if (!status.expires()) {
+                assertThat(status.mayBeIndefinite()).as("%s", status).isTrue();
+            }
+        }
+    }
+
+    @Test
     void everyRangeIsOrdered() {
         for (WalkStatus status : WalkStatus.values()) {
             assertThat(status.minHours())

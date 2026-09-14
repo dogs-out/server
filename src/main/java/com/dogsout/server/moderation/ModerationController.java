@@ -38,6 +38,20 @@ public class ModerationController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Reports a profile without a match, from Discover or a profile screen.
+     *
+     * <p>The match-scoped report below needs both people to have swiped right,
+     * which is the wrong shape for an offensive name, bio or photo: nobody
+     * matches with those, so nobody could report them.
+     */
+    @PostMapping("/users/{userId}/report")
+    public ResponseEntity<Void> reportProfile(Authentication auth, @PathVariable Long userId,
+                                              @Valid @RequestBody ReportRequest request) {
+        moderationService.reportProfile(auth.getName(), userId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/matches/{matchId}")
     public ResponseEntity<Void> unmatch(Authentication auth, @PathVariable Long matchId) {
         moderationService.unmatch(auth.getName(), matchId);

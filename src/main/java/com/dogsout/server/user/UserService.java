@@ -318,10 +318,14 @@ public class UserService {
             WalkStatus status = request.status();
             user.setWalkStatus(status);
             // At home is the resting state and stands until something else is
-            // chosen; everything else is a claim about right now and must expire.
-            user.setWalkStatusExpiresAt(status.expires()
-                    ? Instant.now().plus(Duration.ofHours(status.clampHours(request.hours())))
-                    : null);
+            // chosen; everything else is a claim about right now and must expire —
+            // unless it is one of the few that may be left open-ended and the
+            // caller asked for that.
+            boolean openEnded = !status.expires()
+                    || (Boolean.TRUE.equals(request.indefinite()) && status.mayBeIndefinite());
+            user.setWalkStatusExpiresAt(openEnded
+                    ? null
+                    : Instant.now().plus(Duration.ofHours(status.clampHours(request.hours()))));
 
             boolean sharesPoint = status.mayShareLocation()
                     && request.latitude() != null && request.longitude() != null;

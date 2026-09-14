@@ -12,7 +12,9 @@ import jakarta.validation.constraints.Size;
  * @param latitude  optional, and ignored for statuses that may not carry a point.
  * @param placeName what that point is called, when it was picked on the map.
  * @param dogId     the dog being looked after; required by SITTING, ignored otherwise.
- * @param keepPhoto keeps a photo already attached; absent means the status change drops it.
+ * @param keepPhoto  keeps a photo already attached; absent means the status change drops it.
+ * @param indefinite leaves the status standing until it is changed; only honoured
+ *                   by the statuses that may be open-ended.
  */
 public record UpdateStatusRequest(
         WalkStatus status,
@@ -21,5 +23,6 @@ public record UpdateStatusRequest(
         @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
         @Size(max = 120) String placeName,
         Long dogId,
-        Boolean keepPhoto
+        Boolean keepPhoto,
+        Boolean indefinite
 ) {}

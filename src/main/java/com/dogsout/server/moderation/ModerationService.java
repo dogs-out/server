@@ -34,6 +34,8 @@ public class ModerationService {
     private final MatchRepository matchRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final com.dogsout.server.dog.DogRepository dogRepository;
+    private final com.dogsout.server.user.UserPhotoRepository userPhotoRepository;
     private final EmailService emailService;
     private final PhotoService photoService;
 
@@ -111,6 +113,60 @@ public class ModerationService {
 
         emailService.sendReportEmail(adminEmail,
                 "User report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
+    }
+
+    /**
+     * Reports a profile, with no match required.
+     *
+     * <p>The match-based report can only be used once both people have said yes,
+     * which is precisely the wrong shape: a profile with an offensive name, bio or
+     * photo is one nobody swipes right on, so it never becomes a match and never
+     * becomes reportable. It stays visible to everyone else instead.
+     *
+     * <p>There is no transcript to attach, because there is no conversation — what
+     * is being reported is the profile itself, so the mail carries what the
+     * reporter could actually see.
+     */
+    public void reportProfile(String email, Long userId, ReportRequest request) {
+        User me = findUser(email);
+        if (me.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot report yourself");
+        }
+        User reported = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, USER_NOT_FOUND));
+
+        String dogs = dogRepository.findByOwner(reported).stream()
+                .map(dog -> "%s (%s)".formatted(dog.getName(), dog.getBreed()))
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("(none)");
+
+        String body = """
+                A profile has been reported in Dogs Out.
+
+                Reporter: %s (id %d, %s)
+                Reported: %s (id %d, %s)
+
+                Reason: %s
+                Message from reporter: %s
+
+                ── Reported profile ─────────────────────
+                Name: %s
+                Bio: %s
+                Dogs: %s
+                Photos: %d
+
+                Reported from the profile itself, so there is no conversation to attach.""".formatted(
+                me.getName(), me.getId(), me.getEmail(),
+                reported.getName(), reported.getId(), reported.getEmail(),
+                request.reason(),
+                request.message() == null || request.message().isBlank() ? "(none)" : request.message().trim(),
+                reported.getName(),
+                reported.getBio() == null || reported.getBio().isBlank() ? "(empty)" : reported.getBio(),
+                dogs,
+                userPhotoRepository.findByUserOrderBySortOrderAsc(reported).size());
+
+        emailService.sendReportEmail(adminEmail,
+                "Profile report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
     }
 
     public void unmatch(String email, Long matchId) {
