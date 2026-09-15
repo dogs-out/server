@@ -15,6 +15,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dogsout.server.GeoUtil;
+import com.dogsout.server.dog.Dog;
+import com.dogsout.server.photo.PhotoRendition;
+
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import java.util.Optional;
 
 @Service
@@ -27,6 +36,110 @@ public class SitterService {
     private final BlockRepository blockRepository;
     private final ChatSocketHandler chatSocketHandler;
     private final PushNotificationService pushNotificationService;
+    private final SittingRequestRepository sittingRequestRepository;
+    private final com.dogsout.server.dog.DogRepository dogRepository;
+    private final com.dogsout.server.photo.PhotoService photoService;
+
+    /** Ids are stored joined, the same shape the tag columns use. */
+    private static final String ID_SEPARATOR = "\\|\\|";
+
+    /**
+     * Posts a request for a sitter.
+     *
+     * <p>Only the owner's own dogs, and only a window that has not already passed:
+     * a job nobody can still take is noise in everybody else's list.
+     */
+    public SittingRequestResponse createRequest(String email, CreateSittingRequest request) {
+        User me = findUser(email);
+
+        if (!request.endsAt().isAfter(request.startsAt())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The end has to come after the start");
+        }
+        if (request.endsAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
+        }
+        if (request.dogIds() == null || request.dogIds().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick at least one dog");
+        }
+
+        List<Long> mine = dogRepository.findByOwner(me).stream().map(Dog::getId).toList();
+        if (!mine.containsAll(request.dogIds())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only ask for your own dogs");
+        }
+
+        SittingRequest saved = new SittingRequest();
+        saved.setOwner(me);
+        saved.setStartsAt(request.startsAt());
+        saved.setEndsAt(request.endsAt());
+        saved.setDogIds(request.dogIds().stream().map(String::valueOf).collect(Collectors.joining("||")));
+        saved.setNote(request.note() == null || request.note().isBlank() ? null : request.note().trim());
+        saved.setStatus(SittingRequestStatus.OPEN);
+        return toResponse(sittingRequestRepository.save(saved), me);
+    }
+
+    /**
+     * The open jobs a sitter can still take.
+     *
+     * <p>Past windows are left out rather than shown greyed: a list of jobs that
+     * cannot be taken teaches people to stop reading it.
+     */
+    public List<SittingRequestResponse> openRequests(String email) {
+        User me = findUser(email);
+        return sittingRequestRepository
+                .findByStatusAndStartsAtAfterOrderByStartsAtAsc(SittingRequestStatus.OPEN, Instant.now())
+                .stream()
+                .filter(r -> !blockRepository.existsBlockBetween(me.getId(), r.getOwner().getId()))
+                .map(r -> toResponse(r, me))
+                .toList();
+    }
+
+    /** What this account has posted, open or closed, so it can be managed. */
+    public List<SittingRequestResponse> myRequests(String email) {
+        User me = findUser(email);
+        return sittingRequestRepository.findByOwnerOrderByStartsAtAsc(me).stream()
+                .map(r -> toResponse(r, me))
+                .toList();
+    }
+
+    /** Closes a request. Only the owner, and closing twice is not an error. */
+    public SittingRequestResponse closeRequest(String email, Long id) {
+        User me = findUser(email);
+        SittingRequest found = sittingRequestRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+        if (!found.getOwner().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your request");
+        }
+        found.setStatus(SittingRequestStatus.CLOSED);
+        return toResponse(sittingRequestRepository.save(found), me);
+    }
+
+    private SittingRequestResponse toResponse(SittingRequest request, User viewer) {
+        User owner = request.getOwner();
+        List<Long> ids = request.getDogIds() == null || request.getDogIds().isBlank()
+                ? List.of()
+                : Arrays.stream(request.getDogIds().split(ID_SEPARATOR)).map(Long::valueOf).toList();
+        // By name rather than by id: the list is read, not joined against.
+        List<String> dogs = dogRepository.findAllById(ids).stream().map(Dog::getName).toList();
+
+        double distance = viewer.getLatitude() == null || owner.getLatitude() == null
+                ? -1
+                : Math.round(GeoUtil.distanceKm(
+                        viewer.getLatitude(), viewer.getLongitude(),
+                        owner.getLatitude(), owner.getLongitude()));
+
+        return new SittingRequestResponse(
+                request.getId(), owner.getId(), owner.getName(),
+                photoService.url(owner.getProfilePictureKey(), PhotoRendition.THUMB),
+                request.getStartsAt(), request.getEndsAt(), dogs, request.getNote(),
+                request.getStatus().name(),
+                owner.getId().equals(viewer.getId()),
+                distance);
+    }
+
+    private User findUser(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
 
     /**
      * Dogsitting contact opens a chat immediately in either direction — a sitter
