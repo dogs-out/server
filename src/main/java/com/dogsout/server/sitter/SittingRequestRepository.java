@@ -10,7 +10,20 @@ public interface SittingRequestRepository extends JpaRepository<SittingRequest, 
 
     List<SittingRequest> findByOwnerOrderByStartsAtAsc(User owner);
 
-    /** Open requests that have not already started, soonest first. */
-    List<SittingRequest> findByStatusAndStartsAtAfterOrderByStartsAtAsc(
-            SittingRequestStatus status, Instant after);
+    /**
+     * Open jobs whose window has not yet closed, soonest first.
+     *
+     * <p>Keyed on the end rather than the start: a sitting that began an hour ago
+     * can still be taken, and one that finished yesterday cannot. The board used
+     * to key on the start, which dropped jobs that were still perfectly takeable
+     * and kept nothing that had actually expired.
+     */
+    List<SittingRequest> findByStatusAndEndsAtAfterOrderByStartsAtAsc(
+            SittingRequestStatus status, Instant notYetOver);
+
+    /** Finished sittings that had a sitter and have not prompted the owner yet. */
+    List<SittingRequest> findBySitterIsNotNullAndEndsAtBeforeAndRatingReminderSentAtIsNull(Instant over);
+
+    /** Everything a sitter was accepted for, for their own list. */
+    List<SittingRequest> findBySitterOrderByStartsAtAsc(User sitter);
 }

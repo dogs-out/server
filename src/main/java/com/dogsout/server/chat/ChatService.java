@@ -103,6 +103,6 @@ public class ChatService {
 
     private MessageResponse toResponse(Message m) {
         return new MessageResponse(m.getId(), m.getSender().getId(), m.getContent(), m.getSentAt(),
-                Boolean.TRUE.equals(m.getIsRead()));
+                Boolean.TRUE.equals(m.getIsRead()), m.getSittingRequestId());
     }
 }

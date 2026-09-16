@@ -52,6 +52,19 @@ public class ModerationController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Reports a sitter review's comment — hate speech and the like.
+     *
+     * <p>Hidden immediately rather than after a human reads the mail: the comment
+     * sits on someone else's profile and they have no way to answer it.
+     */
+    @PostMapping("/reviews/{reviewId}/report")
+    public ResponseEntity<Void> reportReview(Authentication auth, @PathVariable Long reviewId,
+                                             @Valid @RequestBody ReportRequest request) {
+        moderationService.reportReview(auth.getName(), reviewId, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/matches/{matchId}")
     public ResponseEntity<Void> unmatch(Authentication auth, @PathVariable Long matchId) {
         moderationService.unmatch(auth.getName(), matchId);
