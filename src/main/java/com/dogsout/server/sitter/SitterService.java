@@ -39,6 +39,8 @@ public class SitterService {
     private final SittingRequestRepository sittingRequestRepository;
     private final com.dogsout.server.dog.DogRepository dogRepository;
     private final com.dogsout.server.photo.PhotoService photoService;
+    private final SitterReviewRepository sitterReviewRepository;
+    private final com.dogsout.server.chat.MessageRepository messageRepository;
 
     /** Ids are stored joined, the same shape the tag columns use. */
     private static final String ID_SEPARATOR = "\\|\\|";
@@ -52,27 +54,14 @@ public class SitterService {
     public SittingRequestResponse createRequest(String email, CreateSittingRequest request) {
         User me = findUser(email);
 
-        if (!request.endsAt().isAfter(request.startsAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The end has to come after the start");
-        }
-        if (request.endsAt().isBefore(Instant.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
-        }
-        if (request.dogIds() == null || request.dogIds().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick at least one dog");
-        }
-
-        List<Long> mine = dogRepository.findByOwner(me).stream().map(Dog::getId).toList();
-        if (!mine.containsAll(request.dogIds())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only ask for your own dogs");
-        }
+        validateWindow(request, me);
 
         SittingRequest saved = new SittingRequest();
         saved.setOwner(me);
         saved.setStartsAt(request.startsAt());
         saved.setEndsAt(request.endsAt());
-        saved.setDogIds(request.dogIds().stream().map(String::valueOf).collect(Collectors.joining("||")));
-        saved.setNote(request.note() == null || request.note().isBlank() ? null : request.note().trim());
+        saved.setDogIds(joinIds(request.dogIds()));
+        saved.setNote(trimmedOrNull(request.note()));
         saved.setStatus(SittingRequestStatus.OPEN);
         return toResponse(sittingRequestRepository.save(saved), me);
     }
@@ -81,12 +70,13 @@ public class SitterService {
      * The open jobs a sitter can still take.
      *
      * <p>Past windows are left out rather than shown greyed: a list of jobs that
-     * cannot be taken teaches people to stop reading it.
+     * cannot be taken teaches people to stop reading it. An accepted job is gone
+     * from here too — accepting sets the status, and only OPEN is listed.
      */
     public List<SittingRequestResponse> openRequests(String email) {
         User me = findUser(email);
         return sittingRequestRepository
-                .findByStatusAndStartsAtAfterOrderByStartsAtAsc(SittingRequestStatus.OPEN, Instant.now())
+                .findByStatusAndEndsAtAfterOrderByStartsAtAsc(SittingRequestStatus.OPEN, Instant.now())
                 .stream()
                 .filter(r -> !blockRepository.existsBlockBetween(me.getId(), r.getOwner().getId()))
                 .map(r -> toResponse(r, me))
@@ -113,6 +103,149 @@ public class SitterService {
         return toResponse(sittingRequestRepository.save(found), me);
     }
 
+    /**
+     * Changes a request that has not been taken yet.
+     *
+     * <p>Editing stops once a sitter has been accepted: they agreed to a particular
+     * evening with particular dogs, and silently moving it underneath them is how
+     * somebody ends up at an empty flat. Cancel and repost instead — which costs
+     * the owner a minute and tells the sitter something changed.
+     */
+    public SittingRequestResponse updateRequest(String email, Long id, CreateSittingRequest request) {
+        User me = findUser(email);
+        SittingRequest found = ownedRequest(me, id);
+
+        if (found.isAccepted()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Someone has already taken this job. Cancel it and post a new one.");
+        }
+        if (found.isOver(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
+        }
+        validateWindow(request, me);
+
+        found.setStartsAt(request.startsAt());
+        found.setEndsAt(request.endsAt());
+        found.setDogIds(joinIds(request.dogIds()));
+        found.setNote(trimmedOrNull(request.note()));
+        return toResponse(sittingRequestRepository.save(found), me);
+    }
+
+    /**
+     * A sitter offering to take a job.
+     *
+     * <p>The offer is a chat message, not a row in a table of applications. Two
+     * reasons: the owner is choosing a person to leave their dog with, so the
+     * conversation is the part that matters and it should start immediately; and
+     * an offer that lives in a list somewhere is an offer nobody answers. The
+     * message carries the request id, which is all the owner's side needs to show
+     * an Accept button on that bubble.
+     */
+    public ContactSitterResponse offer(String email, Long requestId, String message) {
+        User me = findUser(email);
+        SittingRequest job = sittingRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+
+        if (job.getOwner().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That is your own request");
+        }
+        if (job.getStatus() != SittingRequestStatus.OPEN || job.isOver(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This job is no longer open");
+        }
+
+        ContactSitterResponse chat = contact(email, job.getOwner().getId());
+
+        com.dogsout.server.chat.Message offer = new com.dogsout.server.chat.Message();
+        offer.setSender(me);
+        offer.setReceiver(job.getOwner());
+        offer.setMatch(matchRepository.findById(chat.matchId()).orElseThrow());
+        offer.setContent(trimmedOrNull(message) == null
+                ? "I can take this sitting job." : message.trim());
+        offer.setSittingRequestId(job.getId());
+        messageRepository.save(offer);
+
+        pushNotificationService.send(job.getOwner(), me.getName() + " can sit for you 🐾",
+                "Tap to read the offer and accept it.",
+                java.util.Map.of("type", "SITTING_OFFER", "matchId", chat.matchId(),
+                        "otherUserId", me.getId(), "name", me.getName()));
+        return chat;
+    }
+
+    /**
+     * The owner picking one of the sitters who offered.
+     *
+     * <p>Accepting closes the job, which is what takes it off everybody else's
+     * board — see the note on {@link SittingRequest#getStatus()} for why that is a
+     * status plus a sitter rather than a third status value.
+     */
+    public SittingRequestResponse accept(String email, Long id, Long sitterId) {
+        User me = findUser(email);
+        SittingRequest job = ownedRequest(me, id);
+
+        if (job.isAccepted()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already accepted someone for this job");
+        }
+        if (job.isOver(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
+        }
+        User sitter = userRepository.findById(sitterId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (sitter.getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot sit for yourself");
+        }
+
+        job.setSitter(sitter);
+        job.setAcceptedAt(Instant.now());
+        job.setStatus(SittingRequestStatus.CLOSED);
+        SittingRequest saved = sittingRequestRepository.save(job);
+
+        pushNotificationService.send(sitter, "You got the job 🎉",
+                me.getName() + " accepted your offer to sit.",
+                java.util.Map.of("type", "SITTING_ACCEPTED", "requestId", saved.getId()));
+        return toResponse(saved, me);
+    }
+
+    /** Jobs a sitter was accepted for, so their own tab shows what they committed to. */
+    public List<SittingRequestResponse> myJobsAsSitter(String email) {
+        User me = findUser(email);
+        return sittingRequestRepository.findBySitterOrderByStartsAtAsc(me).stream()
+                .map(r -> toResponse(r, me))
+                .toList();
+    }
+
+    private SittingRequest ownedRequest(User me, Long id) {
+        SittingRequest found = sittingRequestRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+        if (!found.getOwner().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your request");
+        }
+        return found;
+    }
+
+    private void validateWindow(CreateSittingRequest request, User me) {
+        if (!request.endsAt().isAfter(request.startsAt())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The end has to come after the start");
+        }
+        if (request.endsAt().isBefore(Instant.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
+        }
+        if (request.dogIds() == null || request.dogIds().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick at least one dog");
+        }
+        List<Long> mine = dogRepository.findByOwner(me).stream().map(Dog::getId).toList();
+        if (!mine.containsAll(request.dogIds())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only ask for your own dogs");
+        }
+    }
+
+    private static String joinIds(List<Long> ids) {
+        return ids.stream().map(String::valueOf).collect(Collectors.joining("||"));
+    }
+
+    private static String trimmedOrNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private SittingRequestResponse toResponse(SittingRequest request, User viewer) {
         User owner = request.getOwner();
         List<Long> ids = request.getDogIds() == null || request.getDogIds().isBlank()
@@ -127,12 +260,27 @@ public class SitterService {
                         viewer.getLatitude(), viewer.getLongitude(),
                         owner.getLatitude(), owner.getLongitude()));
 
+        boolean mine = owner.getId().equals(viewer.getId());
+        boolean over = request.isOver(Instant.now());
+        User sitter = request.getSitter();
+
+        // Only the owner is ever asked to rate, and only once, and only when
+        // somebody actually sat — a job closed with nobody found has nothing to say.
+        boolean awaitingReview = mine && over && sitter != null
+                && !sitterReviewRepository.existsByRequest(request);
+
         return new SittingRequestResponse(
                 request.getId(), owner.getId(), owner.getName(),
                 photoService.url(owner.getProfilePictureKey(), PhotoRendition.THUMB),
-                request.getStartsAt(), request.getEndsAt(), dogs, request.getNote(),
+                request.getStartsAt(), request.getEndsAt(), dogs, ids, request.getNote(),
                 request.getStatus().name(),
-                owner.getId().equals(viewer.getId()),
+                mine,
+                sitter == null ? null : sitter.getId(),
+                sitter == null ? null : sitter.getName(),
+                sitter == null ? null : photoService.url(sitter.getProfilePictureKey(), PhotoRendition.THUMB),
+                over,
+                mine && !over && sitter == null && request.getStatus() == SittingRequestStatus.OPEN,
+                awaitingReview,
                 distance);
     }
 

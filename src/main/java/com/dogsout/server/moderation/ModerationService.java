@@ -43,6 +43,7 @@ public class ModerationService {
     private final com.dogsout.server.dog.DogPhotoRepository dogPhotoRepository;
     private final EmailService emailService;
     private final PhotoService photoService;
+    private final com.dogsout.server.sitter.SitterReviewRepository sitterReviewRepository;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -174,6 +175,70 @@ public class ModerationService {
 
         emailService.sendReportEmail(adminEmail,
                 "Profile report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
+    }
+
+    /**
+     * Reports the written part of a sitter review.
+     *
+     * <p>A review comment is the one piece of free text in the app that a stranger
+     * cannot answer: it sits on a sitter's profile, the sitter never agreed to a
+     * conversation with the person who wrote it, and unlike a chat message there is
+     * nobody on the other end to block. So it is hidden the moment it is reported
+     * rather than when a human gets to the mail — the stars and the tags stay, and
+     * only the prose goes dark until somebody has looked.
+     *
+     * <p>Anyone who can see the comment can report it, the sitter most of all.
+     */
+    public void reportReview(String email, Long reviewId, ReportRequest request) {
+        User me = findUser(email);
+        var review = sitterReviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review not found"));
+
+        if (review.getRater().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You wrote this review");
+        }
+
+        boolean alreadyHidden = review.isHidden();
+        if (!alreadyHidden) {
+            review.setHiddenAt(java.time.Instant.now());
+            sitterReviewRepository.save(review);
+        }
+
+        User author = review.getRater();
+        User about = review.getSitter();
+        String body = """
+                A sitter review has been reported in Dogs Out.
+
+                Reporter: %s (id %d, %s)
+                Review author: %s (id %d, %s)
+                Review is about: %s (id %d, %s)
+
+                Reason: %s
+                Message from reporter: %s
+
+                ── Reported review ──────────────────────
+                Stars: %d/5
+                Highlights: %s
+                Comment: %s
+
+                The comment is hidden from the app already; it was hidden %s.
+                To put it back, clear hidden_at on sitter_reviews id %d.""".formatted(
+                me.getName(), me.getId(), me.getEmail(),
+                author.getName(), author.getId(), author.getEmail(),
+                about.getName(), about.getId(), about.getEmail(),
+                request.reason(),
+                request.message() == null || request.message().isBlank() ? "(none)" : request.message().trim(),
+                review.getStars(),
+                review.tagList().isEmpty() ? "(none)" : String.join(", ", review.tagList()),
+                review.getComment() == null || review.getComment().isBlank()
+                        ? "(none — nothing was written)" : review.getComment(),
+                alreadyHidden ? "by an earlier report" : "by this report",
+                review.getId());
+
+        emailService.sendReportEmail(adminEmail,
+                "Review report: %s on %s (review id %d)".formatted(
+                        author.getName(), about.getName(), review.getId()),
+                body);
     }
 
     /**
