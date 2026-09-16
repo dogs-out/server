@@ -103,28 +103,40 @@ public class DiscoverService {
     }
 
     /** Sitters offering to sit — visible only to someone looking for a sitter. */
-    public List<DiscoverProfile> getSitterPool(String email, String weekday) {
+    public List<DiscoverProfile> getSitterPool(String email, List<String> weekdays) {
         User me = requireUser(email);
         if (!Boolean.TRUE.equals(me.getLookingForSitter())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"looking for a dogsitter\" to browse sitters");
         }
         // Filtered here rather than on the client so the list is not mostly empty
         // after filtering: what comes back is already the people who said they can.
-        return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter()) && availableOn(u, weekday));
+        return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter()) && availableOn(u, weekdays));
     }
 
     /**
-     * Whether a sitter said they are free on that weekday.
+     * Whether a sitter said they are free on any of the weekdays asked for.
+     *
+     * <p>Any rather than all, because that is what picking several days means to
+     * the person picking them: "Monday and Friday" is somebody with two days to
+     * cover, and a sitter who can do one of them is worth showing. Requiring both
+     * would empty the list exactly when it is needed most.
      *
      * <p>No weekday asked for means everyone, and a sitter who named no days at
      * all stays in the list: silence is "ask me", not "never".
      */
-    private static boolean availableOn(User sitter, String weekday) {
-        if (weekday == null || weekday.isBlank()) return true;
+    private static boolean availableOn(User sitter, List<String> weekdays) {
+        if (weekdays == null || weekdays.isEmpty()) return true;
+        List<String> wanted = weekdays.stream()
+                .filter(d -> d != null && !d.isBlank())
+                .map(d -> d.trim().toLowerCase(java.util.Locale.ROOT))
+                .toList();
+        if (wanted.isEmpty()) return true;
+
         String days = sitter.getSitterWeekdays();
         if (days == null || days.isBlank()) return true;
         return Arrays.stream(days.split(TAG_SPLIT_REGEX))
-                .anyMatch(day -> day.equalsIgnoreCase(weekday.trim()));
+                .map(day -> day.trim().toLowerCase(java.util.Locale.ROOT))
+                .anyMatch(wanted::contains);
     }
 
     private User requireUser(String email) {

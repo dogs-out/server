@@ -31,10 +31,14 @@ public class SitterController {
         return ResponseEntity.ok(discoverService.getSeekerPool(auth.getName()));
     }
 
-    /** @param weekday optional, e.g. "Monday" — only sitters who said they are free then. */
+    /**
+     * @param weekday optional, repeated or comma-separated, e.g. "Monday,Friday" —
+     *                sitters free on any one of them. Spring binds both shapes to
+     *                the list, so the client may send whichever is convenient.
+     */
     @GetMapping("/available")
     public ResponseEntity<List<DiscoverProfile>> getAvailableSitters(
-            Authentication auth, @RequestParam(required = false) String weekday) {
+            Authentication auth, @RequestParam(required = false) List<String> weekday) {
         return ResponseEntity.ok(discoverService.getSitterPool(auth.getName(), weekday));
     }
 
