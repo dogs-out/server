@@ -76,7 +76,11 @@ public class SitterReviewService {
                 me.getName() + " left you a review",
                 stars(review.stars()) + " — tap to read it.",
                 java.util.Map.of("type", "SITTING_REVIEWED",
-                        "otherUserId", me.getId(), "name", me.getName()));
+                        // Whose review page to open: the sitter's own, not the
+                        // reviewer's. They are being sent to read about themselves.
+                        "sitterId", job.getSitter().getId(),
+                        "otherUserId", me.getId(),
+                        "name", me.getName()));
 
         return toResponse(stored, me);
     }
