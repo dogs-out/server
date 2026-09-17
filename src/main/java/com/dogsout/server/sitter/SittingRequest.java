@@ -71,6 +71,26 @@ public class SittingRequest {
 
     private Instant acceptedAt;
 
+    // ─── Handover details ─────────────────────────────────────────────────────
+    // Filled in by the owner once somebody is coming. Deliberately not asked for
+    // at posting time: most requests never get taken, and nobody types their
+    // address and their vet's number into a form on the chance that they might.
+
+    /** Free text, one instruction per line. Feeding, keys, the walk they like. */
+    @Column(columnDefinition = "TEXT")
+    private String todoList;
+
+    /** Who the sitter rings if something is wrong and the owner is unreachable. */
+    private String emergencyPhone;
+
+    /** Where the sitting happens, as text — from the map pin or the owner's place. */
+    private String addressLabel;
+    private Double addressLatitude;
+    private Double addressLongitude;
+
+    /** Set when the details were last saved, so a re-send can say "updated". */
+    private Instant detailsSharedAt;
+
     /**
      * When the owner was asked to rate. Stamped before the push goes out so a
      * restart or a second scheduler pass cannot ask twice.

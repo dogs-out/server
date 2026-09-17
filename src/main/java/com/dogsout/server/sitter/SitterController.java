@@ -81,6 +81,29 @@ public class SitterController {
         return ResponseEntity.ok(sitterService.accept(auth.getName(), id, body.sitterId()));
     }
 
+    /** The sitter pulling out; the job goes back on the board. */
+    @PutMapping("/requests/{id}/cancel")
+    public ResponseEntity<SittingRequestResponse> cancelAsSitter(
+            Authentication auth, @PathVariable Long id,
+            @RequestBody(required = false) CancelSittingRequest body) {
+        return ResponseEntity.ok(
+                sitterService.cancelAsSitter(auth.getName(), id, body == null ? null : body.reason()));
+    }
+
+    /** The owner handing over the to-do list, emergency number and address. */
+    @PutMapping("/requests/{id}/details")
+    public ResponseEntity<SittingRequestResponse> shareDetails(
+            Authentication auth, @PathVariable Long id,
+            @Valid @RequestBody SittingDetailsRequest details) {
+        return ResponseEntity.ok(sitterService.shareDetails(auth.getName(), id, details));
+    }
+
+    /** This account's cancellation record, so the app can warn before a penalty. */
+    @GetMapping("/standing")
+    public ResponseEntity<SitterStandingResponse> standing(Authentication auth) {
+        return ResponseEntity.ok(sitterService.standing(auth.getName()));
+    }
+
     /** Jobs this account was accepted for, as the sitter. */
     @GetMapping("/requests/accepted")
     public ResponseEntity<List<SittingRequestResponse>> acceptedJobs(Authentication auth) {

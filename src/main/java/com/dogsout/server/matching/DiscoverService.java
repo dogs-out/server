@@ -110,7 +110,12 @@ public class DiscoverService {
         }
         // Filtered here rather than on the client so the list is not mostly empty
         // after filtering: what comes back is already the people who said they can.
-        return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter()) && availableOn(u, weekdays));
+        // A suspended sitter is left out entirely rather than shown and refused
+        // later: an owner writing to somebody who cannot accept is a dead end for
+        // both of them, and the sitter is not told off in public either.
+        return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter())
+                && !u.isSitterBlocked()
+                && availableOn(u, weekdays));
     }
 
     /**

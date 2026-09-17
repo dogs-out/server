@@ -13,6 +13,7 @@ import java.util.List;
  * @param canEdit     the reader may still change it — their own, not accepted, not over
  * @param awaitingReview  it is over, somebody sat, and the owner has not rated them yet
  * @param distanceKm  rounded, like everywhere else; -1 when either side has no location
+ * @param detailsShared the owner has handed over the to-do list, number and address
  */
 public record SittingRequestResponse(
         Long id,
@@ -32,5 +33,11 @@ public record SittingRequestResponse(
         boolean over,
         boolean canEdit,
         boolean awaitingReview,
-        double distanceKm
+        double distanceKm,
+        String todoList,
+        String emergencyPhone,
+        String addressLabel,
+        Double addressLatitude,
+        Double addressLongitude,
+        boolean detailsShared
 ) {}

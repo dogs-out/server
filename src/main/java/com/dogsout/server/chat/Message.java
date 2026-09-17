@@ -47,6 +47,14 @@ public class Message {
     @Column(name = "sitting_request_id")
     private Long sittingRequestId;
 
+    /**
+     * True when this is the owner's handover card rather than a sitter's offer.
+     * Both carry a request id and they are drawn completely differently, so the
+     * distinction is explicit instead of inferred from who sent it.
+     */
+    @Column(name = "sitting_details")
+    private Boolean sittingDetails;
+
     @CreationTimestamp
     @Column(updatable = false)
     private Instant sentAt;
