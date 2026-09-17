@@ -146,6 +146,22 @@ public class User {
     private Boolean isSitter;
     private Boolean lookingForSitter;
 
+    /**
+     * Set when repeated late cancellations have suspended this account's right to
+     * take sitting jobs, and cleared by time rather than by anything anyone does.
+     *
+     * <p>A timestamp rather than a flag plus a cron job: the ban is a fact about
+     * a date, so anything that needs to know can compare it to now and nothing
+     * has to remember to switch it back on. Their own toggle is left alone —
+     * this suspends the role, it does not decide it for them.
+     */
+    private Instant sitterBlockedUntil;
+
+    /** True while a penalty is running. */
+    public boolean isSitterBlocked() {
+        return sitterBlockedUntil != null && sitterBlockedUntil.isAfter(Instant.now());
+    }
+
     @Column(columnDefinition = "TEXT")
     private String sitterWeekdays;
 

@@ -13,5 +13,6 @@ public record MessageResponse(
         String content,
         Instant sentAt,
         boolean isRead,
-        Long sittingRequestId
+        Long sittingRequestId,
+        boolean sittingDetails
 ) {}

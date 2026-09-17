@@ -20,6 +20,7 @@ import com.dogsout.server.dog.Dog;
 import com.dogsout.server.photo.PhotoRendition;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,6 +42,7 @@ public class SitterService {
     private final com.dogsout.server.photo.PhotoService photoService;
     private final SitterReviewRepository sitterReviewRepository;
     private final com.dogsout.server.chat.MessageRepository messageRepository;
+    private final SitterCancellationRepository sitterCancellationRepository;
 
     /** Ids are stored joined, the same shape the tag columns use. */
     private static final String ID_SEPARATOR = "\\|\\|";
@@ -152,6 +154,10 @@ public class SitterService {
         if (job.getStatus() != SittingRequestStatus.OPEN || job.isOver(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This job is no longer open");
         }
+        if (me.isSitterBlocked()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Dogsitting is paused on your account after repeated late cancellations.");
+        }
 
         ContactSitterResponse chat = contact(email, job.getOwner().getId());
 
@@ -202,6 +208,142 @@ public class SitterService {
         pushNotificationService.send(sitter, "You got the job 🎉",
                 me.getName() + " accepted your offer to sit.",
                 java.util.Map.of("type", "SITTING_ACCEPTED", "requestId", saved.getId()));
+        return toResponse(saved, me);
+    }
+
+    /**
+     * The sitter pulling out of a job they had taken.
+     *
+     * <p>The job goes back on the board rather than dying, so the owner has a
+     * chance of finding somebody else instead of only being told bad news. If the
+     * window has already passed there is nothing to reopen and it simply closes.
+     *
+     * <p>Cancelling early is not penalised at all. A sitter who realises in good
+     * time that they cannot make it is doing the right thing, and a rule that
+     * punished it would teach people to say nothing until the last moment —
+     * which is the failure this is meant to prevent.
+     */
+    public SittingRequestResponse cancelAsSitter(String email, Long id, String reason) {
+        User me = findUser(email);
+        SittingRequest job = sittingRequestRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
+
+        if (job.getSitter() == null || !job.getSitter().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not the sitter for this job");
+        }
+        Instant now = Instant.now();
+        if (job.isOver(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That sitting is already over");
+        }
+
+        boolean late = job.getStartsAt() != null
+                && job.getStartsAt().isBefore(now.plus(SitterCancellation.LATE_HOURS, ChronoUnit.HOURS));
+
+        SitterCancellation strike = new SitterCancellation();
+        strike.setSitter(me);
+        strike.setRequestId(job.getId());
+        strike.setLate(late);
+        strike.setSittingStartsAt(job.getStartsAt());
+        sitterCancellationRepository.save(strike);
+
+        User owner = job.getOwner();
+        job.setSitter(null);
+        job.setAcceptedAt(null);
+        job.setStatus(SittingRequestStatus.OPEN);
+        SittingRequest saved = sittingRequestRepository.save(job);
+
+        if (late) applyPenaltyIfEarned(me);
+
+        String tail = reason == null || reason.isBlank() ? "" : " — \"" + reason.trim() + "\"";
+        pushNotificationService.send(owner, me.getName() + " cancelled the sitting",
+                "Your request is open again so another sitter can take it." + tail,
+                java.util.Map.of("type", "SITTING_CANCELLED", "requestId", saved.getId()));
+
+        return toResponse(saved, owner);
+    }
+
+    /**
+     * Suspends the right to take jobs once the late cancellations pile up.
+     *
+     * <p>Counted over a rolling year and measured from now, so the penalty ends by
+     * itself. Nothing switches the sitter's own toggle off — the role is
+     * suspended, not decided for them, and it comes back without anybody having
+     * to remember to restore it.
+     */
+    private void applyPenaltyIfEarned(User sitter) {
+        Instant yearAgo = Instant.now().minus(365, ChronoUnit.DAYS);
+        long strikes = sitterCancellationRepository
+                .countBySitterAndLateIsTrueAndCreatedAtAfter(sitter, yearAgo);
+        if (strikes < SitterCancellation.STRIKES) return;
+
+        sitter.setSitterBlockedUntil(Instant.now().plus(SitterCancellation.PENALTY_DAYS, ChronoUnit.DAYS));
+        userRepository.save(sitter);
+        pushNotificationService.send(sitter, "Dogsitting paused",
+                "Three late cancellations in a year — you can take jobs again in "
+                        + SitterCancellation.PENALTY_DAYS + " days.",
+                java.util.Map.of("type", "SITTING_BLOCKED"));
+    }
+
+    /** What the app needs to warn a sitter before a cancellation costs them. */
+    public SitterStandingResponse standing(String email) {
+        User me = findUser(email);
+        Instant yearAgo = Instant.now().minus(365, ChronoUnit.DAYS);
+        return new SitterStandingResponse(
+                sitterCancellationRepository.countBySitterAndLateIsTrueAndCreatedAtAfter(me, yearAgo),
+                SitterCancellation.STRIKES,
+                SitterCancellation.LATE_HOURS,
+                me.isSitterBlocked() ? me.getSitterBlockedUntil() : null);
+    }
+
+    /**
+     * The owner handing over what the sitter needs to actually do the job.
+     *
+     * <p>Asked for only once somebody is coming: most requests are never taken,
+     * and nobody types their address and their vet's number into a form on the
+     * chance that one might be. Saving posts it into the chat as a card, so it
+     * sits where the sitter will look for it rather than behind a screen they
+     * would have to remember exists.
+     */
+    public SittingRequestResponse shareDetails(String email, Long id, SittingDetailsRequest details) {
+        User me = findUser(email);
+        SittingRequest job = ownedRequest(me, id);
+
+        if (job.getSitter() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Accept a sitter before sharing the details");
+        }
+
+        boolean resend = job.getDetailsSharedAt() != null;
+        job.setTodoList(trimmedOrNull(details.todoList()));
+        job.setEmergencyPhone(trimmedOrNull(details.emergencyPhone()));
+        job.setAddressLabel(trimmedOrNull(details.addressLabel()));
+        job.setAddressLatitude(details.addressLatitude());
+        job.setAddressLongitude(details.addressLongitude());
+        job.setDetailsSharedAt(Instant.now());
+        SittingRequest saved = sittingRequestRepository.save(job);
+
+        User sitter = job.getSitter();
+        ContactSitterResponse chat = contact(email, sitter.getId());
+        com.dogsout.server.chat.Message card = new com.dogsout.server.chat.Message();
+        card.setSender(me);
+        card.setReceiver(sitter);
+        card.setMatch(matchRepository.findById(chat.matchId()).orElseThrow());
+        // The text is the fallback for any client too old to draw the card, so it
+        // says the useful thing rather than "shared details".
+        card.setContent(resend
+                ? "I updated the sitting details."
+                : "Here are the details for the sitting.");
+        card.setSittingRequestId(saved.getId());
+        card.setSittingDetails(true);
+        messageRepository.save(card);
+
+        pushNotificationService.send(sitter,
+                resend ? me.getName() + " updated the sitting details"
+                       : me.getName() + " sent the sitting details",
+                "Address, to-do list and emergency number are in your chat.",
+                java.util.Map.of("type", "SITTING_DETAILS", "matchId", chat.matchId(),
+                        "otherUserId", me.getId(), "name", me.getName()));
+
         return toResponse(saved, me);
     }
 
@@ -263,6 +405,7 @@ public class SitterService {
         boolean mine = owner.getId().equals(viewer.getId());
         boolean over = request.isOver(Instant.now());
         User sitter = request.getSitter();
+        boolean forInvolved = mine || (sitter != null && sitter.getId().equals(viewer.getId()));
 
         // Only the owner is ever asked to rate, and only once, and only when
         // somebody actually sat — a job closed with nobody found has nothing to say.
@@ -281,7 +424,16 @@ public class SitterService {
                 over,
                 mine && !over && sitter == null && request.getStatus() == SittingRequestStatus.OPEN,
                 awaitingReview,
-                distance);
+                distance,
+                // Somebody's address, phone number and house keys routine. Only the
+                // owner and the sitter who was actually accepted ever see these —
+                // the job board is public to every sitter in range.
+                forInvolved ? request.getTodoList() : null,
+                forInvolved ? request.getEmergencyPhone() : null,
+                forInvolved ? request.getAddressLabel() : null,
+                forInvolved ? request.getAddressLatitude() : null,
+                forInvolved ? request.getAddressLongitude() : null,
+                request.getDetailsSharedAt() != null);
     }
 
     private User findUser(String email) {

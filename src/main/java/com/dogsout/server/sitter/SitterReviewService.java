@@ -34,6 +34,7 @@ public class SitterReviewService {
     private final SittingRequestRepository sittingRequestRepository;
     private final UserRepository userRepository;
     private final PhotoService photoService;
+    private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
 
     /** The tags an owner may pick from, for the client to render. */
     public List<String> allowedTags() {
@@ -66,7 +67,22 @@ public class SitterReviewService {
         saved.setComment(review.comment() == null || review.comment().isBlank()
                 ? null : review.comment().trim());
         saved.setTags(validatedTags(review.tags()));
-        return toResponse(sitterReviewRepository.save(saved), me);
+        SitterReview stored = sitterReviewRepository.save(saved);
+
+        // Told, not left to be discovered. A review is the only thing in the app
+        // written about somebody that they have no other way of finding out about
+        // — and for a sitter it is the thing their next job depends on.
+        pushNotificationService.send(job.getSitter(),
+                me.getName() + " left you a review",
+                stars(review.stars()) + " — tap to read it.",
+                java.util.Map.of("type", "SITTING_REVIEWED",
+                        // Whose review page to open: the sitter's own, not the
+                        // reviewer's. They are being sent to read about themselves.
+                        "sitterId", job.getSitter().getId(),
+                        "otherUserId", me.getId(),
+                        "name", me.getName()));
+
+        return toResponse(stored, me);
     }
 
     /**
@@ -125,7 +141,8 @@ public class SitterReviewService {
                         r.getStatus().name(), true,
                         r.getSitter().getId(), r.getSitter().getName(),
                         photoService.url(r.getSitter().getProfilePictureKey(), PhotoRendition.THUMB),
-                        true, false, true, -1))
+                        true, false, true, -1,
+                        null, null, null, null, null, r.getDetailsSharedAt() != null))
                 .toList();
     }
 
@@ -143,6 +160,11 @@ public class SitterReviewService {
                 review.tagList(),
                 rater.getId().equals(viewer.getId()),
                 review.getCreatedAt());
+    }
+
+    /** Stars as stars: a notification is read at a glance, not parsed. */
+    private static String stars(int count) {
+        return "★".repeat(Math.max(0, count)) + "☆".repeat(Math.max(0, SitterReview.MAX_STARS - count));
     }
 
     private User findUser(String email) {
