@@ -165,6 +165,10 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String sitterWeekdays;
 
+    /** Times of day a sitter is free — Morning, Afternoon, Evening — `||`-joined like the weekdays. */
+    @Column(columnDefinition = "TEXT")
+    private String sitterTimeSlots;
+
     private Integer sitterExperienceYears;
 
     @Column(columnDefinition = "TEXT")

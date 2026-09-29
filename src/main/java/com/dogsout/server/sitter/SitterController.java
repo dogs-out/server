@@ -35,11 +35,15 @@ public class SitterController {
      * @param weekday optional, repeated or comma-separated, e.g. "Monday,Friday" —
      *                sitters free on any one of them. Spring binds both shapes to
      *                the list, so the client may send whichever is convenient.
+     * @param slot    optional, same shape: "Morning", "Afternoon", "Evening" —
+     *                sitters free at any one of those times of day.
      */
     @GetMapping("/available")
     public ResponseEntity<List<DiscoverProfile>> getAvailableSitters(
-            Authentication auth, @RequestParam(required = false) List<String> weekday) {
-        return ResponseEntity.ok(discoverService.getSitterPool(auth.getName(), weekday));
+            Authentication auth,
+            @RequestParam(required = false) List<String> weekday,
+            @RequestParam(required = false) List<String> slot) {
+        return ResponseEntity.ok(discoverService.getSitterPool(auth.getName(), weekday, slot));
     }
 
     /** Open jobs any sitter can still take, soonest first. */

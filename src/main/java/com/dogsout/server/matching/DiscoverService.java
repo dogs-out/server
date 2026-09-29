@@ -103,7 +103,7 @@ public class DiscoverService {
     }
 
     /** Sitters offering to sit — visible only to someone looking for a sitter. */
-    public List<DiscoverProfile> getSitterPool(String email, List<String> weekdays) {
+    public List<DiscoverProfile> getSitterPool(String email, List<String> weekdays, List<String> timeSlots) {
         User me = requireUser(email);
         if (!Boolean.TRUE.equals(me.getLookingForSitter())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"looking for a dogsitter\" to browse sitters");
@@ -115,7 +115,8 @@ public class DiscoverService {
         // both of them, and the sitter is not told off in public either.
         return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter())
                 && !u.isSitterBlocked()
-                && availableOn(u, weekdays));
+                && availableOn(u, weekdays)
+                && com.dogsout.server.user.TimeSlots.anyMatch(u.getSitterTimeSlots(), timeSlots));
     }
 
     /**
@@ -241,6 +242,7 @@ public class DiscoverService {
                 distance,
                 isSitter,
                 isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
+                isSitter ? com.dogsout.server.user.TimeSlots.split(u.getSitterTimeSlots()) : List.of(),
                 isSitter ? u.getSitterExperienceYears() : null,
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter()),

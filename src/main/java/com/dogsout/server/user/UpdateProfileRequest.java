@@ -27,6 +27,7 @@ public record UpdateProfileRequest(
         Boolean isSitter,
         Boolean lookingForSitter,
         List<String> sitterWeekdays,
+        List<String> sitterTimeSlots,
         @Min(0) @Max(10) Integer sitterExperienceYears,
         List<String> sitterTags,
         Integer maxDistanceKm,

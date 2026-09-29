@@ -19,6 +19,7 @@ public record DiscoverProfile(
         double distanceKm,
         boolean isSitter,
         List<String> sitterWeekdays,
+        List<String> sitterTimeSlots,
         Integer sitterExperienceYears,
         List<String> sitterTags,
         boolean lookingForSitter,
