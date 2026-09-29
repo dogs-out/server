@@ -6,6 +6,7 @@ import java.time.Instant;
  * @param sittingRequestId set when the message is a sitter's offer on a sitting
  *                         request; the owner's side renders those with an Accept
  *                         button rather than as plain text. Null for ordinary messages.
+ * @param playdateId       set when the message is a walk invite, drawn as a card.
  */
 public record MessageResponse(
         Long id,
@@ -14,5 +15,6 @@ public record MessageResponse(
         Instant sentAt,
         boolean isRead,
         Long sittingRequestId,
-        boolean sittingDetails
+        boolean sittingDetails,
+        Long playdateId
 ) {}

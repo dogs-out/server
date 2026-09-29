@@ -54,6 +54,14 @@ public class Playdate {
      */
     private Boolean sittersWelcome;
 
+    /**
+     * True for a 1:1 walk invited from a chat rather than a meetup made in the
+     * Playdates tab. It is an ordinary invite-only playdate capped at two, so it
+     * reuses joining, leaving, reminders and the detail screen; the flag only lets
+     * the app label it as a walk. Null means a regular playdate.
+     */
+    private Boolean walk;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PlaydateVisibility visibility;

@@ -68,7 +68,19 @@ public final class PlaydateDtos {
             // Preview for the group-chat row on the Chats screen. No unread count —
             // playdate chats deliberately have no read tracking in v1.
             String lastMessageContent,
-            Instant lastMessageSentAt
+            Instant lastMessageSentAt,
+            boolean walk
+    ) {}
+
+    /** A 1:1 walk invite sent from a chat — where and when, plus an optional note. */
+    public record WalkInviteRequest(
+            @NotBlank @Size(max = 2000) String content,
+            @NotBlank @Size(max = 200) String parkName,
+            @Size(max = 300) String address,
+            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double latitude,
+            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
+            @NotNull Instant startsAt,
+            @Size(max = 1000) String note
     ) {}
 
     public record PlaydateMessageResponse(

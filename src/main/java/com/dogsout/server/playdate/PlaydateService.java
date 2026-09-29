@@ -112,6 +112,34 @@ public class PlaydateService {
         return toResponse(saved, me, true);
     }
 
+    /**
+     * A 1:1 walk from a chat: an invite-only playdate for exactly two, with the chat
+     * partner already invited. The chat message that announces it is the caller's
+     * job, so no separate playdate-invite push goes out here — one invite, one push.
+     */
+    public Playdate createWalk(User host, User invitee, WalkInviteRequest request) {
+        requireCanHost(host);
+        validateDetails(null, request.note(), request.startsAt(), 2);
+
+        Playdate walk = new Playdate();
+        walk.setHost(host);
+        applyDetails(walk, null, request.note(), request.parkName(), request.address(),
+                request.latitude(), request.longitude(), request.startsAt(), 2);
+        walk.setVisibility(PlaydateVisibility.INVITE_ONLY);
+        walk.setSittersWelcome(true);
+        walk.setWalk(true);
+        walk.setStatus(PlaydateStatus.ACTIVE);
+        Playdate saved = playdateRepository.save(walk);
+
+        PlaydateParticipant participant = new PlaydateParticipant();
+        participant.setPlaydate(saved);
+        participant.setUser(invitee);
+        participant.setStatus(ParticipantStatus.INVITED);
+        participantRepository.save(participant);
+        chatSocketHandler.sendToUser(invitee.getId(), ChatSocketEvent.playdateUpdated(saved.getId()));
+        return saved;
+    }
+
     public PlaydateResponse update(String email, Long id, UpdatePlaydateRequest request) {
         User me = findUser(email);
         Playdate playdate = findHostedPlaydate(id, me);
@@ -518,7 +546,8 @@ public class PlaydateService {
                 myStatus,
                 participantResponses,
                 lastMessage != null ? lastMessage.getContent() : null,
-                lastMessage != null ? lastMessage.getSentAt() : null
+                lastMessage != null ? lastMessage.getSentAt() : null,
+                Boolean.TRUE.equals(playdate.getWalk())
         );
     }
 

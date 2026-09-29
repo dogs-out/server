@@ -55,6 +55,10 @@ public class Message {
     @Column(name = "sitting_details")
     private Boolean sittingDetails;
 
+    /** Set when this message is a walk invite; the playdate holds where, when and who said yes. */
+    @Column(name = "playdate_id")
+    private Long playdateId;
+
     @CreationTimestamp
     @Column(updatable = false)
     private Instant sentAt;

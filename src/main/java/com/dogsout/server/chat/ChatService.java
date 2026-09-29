@@ -3,6 +3,9 @@ package com.dogsout.server.chat;
 import com.dogsout.server.ProfanityFilter;
 import com.dogsout.server.moderation.BlockRepository;
 import com.dogsout.server.notification.PushNotificationService;
+import com.dogsout.server.playdate.Playdate;
+import com.dogsout.server.playdate.PlaydateDtos.WalkInviteRequest;
+import com.dogsout.server.playdate.PlaydateService;
 import com.dogsout.server.matching.Match;
 import com.dogsout.server.matching.MatchRepository;
 import com.dogsout.server.matching.MatchStatus;
@@ -30,6 +33,7 @@ public class ChatService {
     private final BlockRepository blockRepository;
     private final ChatSocketHandler chatSocketHandler;
     private final PushNotificationService pushNotificationService;
+    private final PlaydateService playdateService;
 
     public List<MessageResponse> getMessages(String email, Long matchId) {
         User me = findUser(email);
@@ -77,6 +81,44 @@ public class ChatService {
         return response;
     }
 
+    /**
+     * Invites the other person in this chat for a walk: a two-person playdate, and a
+     * message in the conversation that the app draws as a card with Accept/Decline.
+     * The message text is written by the sender's app in their language and stands
+     * on its own, so an older app version still shows a readable invite.
+     */
+    public MessageResponse sendWalkInvite(String email, Long matchId, WalkInviteRequest request) {
+        User me = findUser(email);
+        Match match = findMatchedMatch(matchId, me);
+        if (profanityFilter.containsProfanity(request.content())
+                || (request.note() != null && profanityFilter.containsProfanity(request.note()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your message contains inappropriate language.");
+        }
+        User other = match.getUser1().getId().equals(me.getId()) ? match.getUser2() : match.getUser1();
+        Playdate walk = playdateService.createWalk(me, other, request);
+
+        Message message = new Message();
+        message.setSender(me);
+        message.setReceiver(other);
+        message.setMatch(match);
+        message.setContent(request.content().trim());
+        message.setPlaydateId(walk.getId());
+        MessageResponse response = toResponse(messageRepository.save(message));
+
+        chatSocketHandler.sendToUser(other.getId(), ChatSocketEvent.newMessage(match.getId(), response));
+        chatSocketHandler.sendToUser(me.getId(), ChatSocketEvent.newMessage(match.getId(), response));
+        if (!chatSocketHandler.isOnline(other.getId())) {
+            pushNotificationService.send(other, me.getName() + " invited you for a walk 🐾",
+                    walk.getParkName(), java.util.Map.of(
+                    "type", "NEW_MESSAGE",
+                    "matchId", match.getId(),
+                    "otherUserId", me.getId(),
+                    "name", me.getName()
+            ));
+        }
+        return response;
+    }
+
     private Match findMatchedMatch(Long matchId, User me) {
         Match match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Match not found"));
@@ -104,6 +146,6 @@ public class ChatService {
     private MessageResponse toResponse(Message m) {
         return new MessageResponse(m.getId(), m.getSender().getId(), m.getContent(), m.getSentAt(),
                 Boolean.TRUE.equals(m.getIsRead()), m.getSittingRequestId(),
-                Boolean.TRUE.equals(m.getSittingDetails()));
+                Boolean.TRUE.equals(m.getSittingDetails()), m.getPlaydateId());
     }
 }

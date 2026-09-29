@@ -20,6 +20,12 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getMessages(auth.getName(), matchId));
     }
 
+    @PostMapping("/{matchId}/walk-invite")
+    public ResponseEntity<MessageResponse> sendWalkInvite(Authentication auth, @PathVariable Long matchId,
+                                                          @Valid @RequestBody com.dogsout.server.playdate.PlaydateDtos.WalkInviteRequest request) {
+        return ResponseEntity.ok(chatService.sendWalkInvite(auth.getName(), matchId, request));
+    }
+
     @PostMapping("/{matchId}/messages")
     public ResponseEntity<MessageResponse> sendMessage(Authentication auth, @PathVariable Long matchId,
                                                        @Valid @RequestBody SendMessageRequest request) {
