@@ -28,6 +28,7 @@ public class DogService {
     private final DogPhotoRepository dogPhotoRepository;
     private final ProfanityFilter profanityFilter;
     private final PhotoService photoService;
+    private final com.dogsout.server.sos.LostDogAlertRepository lostDogAlertRepository;
 
     public DogResponse createDog(String email, DogRequest request) {
         User owner = findUser(email);
@@ -69,6 +70,7 @@ public class DogService {
         assertOwner(email, dog);
         List<DogPhoto> photos = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
         List<String> keys = new ArrayList<>(photos.stream().map(DogPhoto::getStorageKey).toList());
+        lostDogAlertRepository.deleteByDog(dog);
         dogPhotoRepository.deleteAll(photos);
         dogRepository.delete(dog);
         keys.forEach(photoService::delete);

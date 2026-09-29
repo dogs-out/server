@@ -47,6 +47,7 @@ public class UserService {
     private final com.dogsout.server.playdate.PlaydateService playdateService;
     private final PhotoService photoService;
     private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
+    private final com.dogsout.server.sos.LostDogAlertRepository lostDogAlertRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -187,6 +188,7 @@ public class UserService {
 
     private void deleteUser(User user) {
         playdateService.deleteAllForUser(user);
+        lostDogAlertRepository.deleteByOwner(user);
         // Messages reference matches, so they must go first
         messageRepository.deleteBySenderOrReceiver(user, user);
         matchRepository.deleteByUser1OrUser2(user, user);
