@@ -33,6 +33,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         // /ws authenticates itself via JWT in the handshake interceptor
                         .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
+                        // AdMob verifies the app by fetching this from the developer site in the store listing
+                        .requestMatchers("/app-ads.txt").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
