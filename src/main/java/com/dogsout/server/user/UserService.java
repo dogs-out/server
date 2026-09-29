@@ -166,7 +166,25 @@ public class UserService {
     }
 
     public void deleteAccount(String email) {
-        User user = findUser(email);
+        deleteUser(findUser(email));
+    }
+
+    /**
+     * Admin removal of someone else's account — the same teardown as self-deletion, so
+     * chats, matches, playdates, dogs and the stored photos all go with it. Deleting
+     * yourself here is refused: that has its own flow, and an admin removing their own
+     * account by a mistyped id would lock everyone out of this endpoint.
+     */
+    public void deleteAccountById(Long id, String adminEmail) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getEmail().equals(adminEmail)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use DELETE /users/me to delete your own account");
+        }
+        deleteUser(user);
+    }
+
+    private void deleteUser(User user) {
         playdateService.deleteAllForUser(user);
         // Messages reference matches, so they must go first
         messageRepository.deleteBySenderOrReceiver(user, user);

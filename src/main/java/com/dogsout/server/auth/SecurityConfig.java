@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         // /ws authenticates itself via JWT in the handshake interceptor
                         .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
