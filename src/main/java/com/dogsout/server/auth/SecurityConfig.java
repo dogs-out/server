@@ -35,6 +35,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
                         // AdMob verifies the app by fetching this from the developer site in the store listing
                         .requestMatchers("/app-ads.txt").permitAll()
+                        // The public website: the overview page and its stylesheet
+                        .requestMatchers("/", "/index.html", "/site.css").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
