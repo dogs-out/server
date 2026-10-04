@@ -427,10 +427,11 @@ public class UserService {
                 Long userId = Long.valueOf(parts[0]);
                 User friend = userRepository.findById(userId).orElse(null);
                 if (friend == null) continue;
-                String dogName = parts.length > 1 && !parts[1].isBlank()
-                        ? dogRepository.findById(Long.valueOf(parts[1])).map(Dog::getName).orElse(null)
+                Dog dog = parts.length > 1 && !parts[1].isBlank()
+                        ? dogRepository.findById(Long.valueOf(parts[1])).orElse(null)
                         : null;
-                out.add(new StatusCompanion(friend.getId(), friend.getName(), dogName));
+                out.add(new StatusCompanion(friend.getId(), friend.getName(),
+                        dog == null ? null : dog.getId(), dog == null ? null : dog.getName()));
             } catch (NumberFormatException ignored) {
                 // a malformed pair is skipped, not fatal
             }
