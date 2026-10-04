@@ -20,6 +20,7 @@ public record DiscoverProfile(
         boolean isSitter,
         List<String> sitterWeekdays,
         List<String> sitterTimeSlots,
+        List<String> sitterAvailability,
         Integer sitterExperienceYears,
         List<String> sitterTags,
         boolean lookingForSitter,

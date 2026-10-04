@@ -23,6 +23,7 @@ public record UserResponse(
         Boolean lookingForSitter,
         List<String> sitterWeekdays,
         List<String> sitterTimeSlots,
+        List<String> sitterAvailability,
         Integer sitterExperienceYears,
         List<String> sitterTags,
         LocalDateTime createdAt,

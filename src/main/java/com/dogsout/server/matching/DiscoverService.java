@@ -115,34 +115,7 @@ public class DiscoverService {
         // both of them, and the sitter is not told off in public either.
         return sitterPool(me, u -> Boolean.TRUE.equals(u.getIsSitter())
                 && !u.isSitterBlocked()
-                && availableOn(u, weekdays)
-                && com.dogsout.server.user.TimeSlots.anyMatch(u.getSitterTimeSlots(), timeSlots));
-    }
-
-    /**
-     * Whether a sitter said they are free on any of the weekdays asked for.
-     *
-     * <p>Any rather than all, because that is what picking several days means to
-     * the person picking them: "Monday and Friday" is somebody with two days to
-     * cover, and a sitter who can do one of them is worth showing. Requiring both
-     * would empty the list exactly when it is needed most.
-     *
-     * <p>No weekday asked for means everyone, and a sitter who named no days at
-     * all stays in the list: silence is "ask me", not "never".
-     */
-    private static boolean availableOn(User sitter, List<String> weekdays) {
-        if (weekdays == null || weekdays.isEmpty()) return true;
-        List<String> wanted = weekdays.stream()
-                .filter(d -> d != null && !d.isBlank())
-                .map(d -> d.trim().toLowerCase(java.util.Locale.ROOT))
-                .toList();
-        if (wanted.isEmpty()) return true;
-
-        String days = sitter.getSitterWeekdays();
-        if (days == null || days.isBlank()) return true;
-        return Arrays.stream(days.split(TAG_SPLIT_REGEX))
-                .map(day -> day.trim().toLowerCase(java.util.Locale.ROOT))
-                .anyMatch(wanted::contains);
+                && com.dogsout.server.user.Availability.matches(u, weekdays, timeSlots));
     }
 
     private User requireUser(String email) {
@@ -243,6 +216,7 @@ public class DiscoverService {
                 isSitter,
                 isSitter && u.getSitterWeekdays() != null ? Arrays.asList(u.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 isSitter ? com.dogsout.server.user.TimeSlots.split(u.getSitterTimeSlots()) : List.of(),
+                isSitter ? com.dogsout.server.user.Availability.split(u.getSitterAvailability()) : List.of(),
                 isSitter ? u.getSitterExperienceYears() : null,
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter()),

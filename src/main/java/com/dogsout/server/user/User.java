@@ -169,6 +169,10 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String sitterTimeSlots;
 
+    /** The week as a grid of "Day:Slot" pairs — see {@link Availability}. Null for sitters who never filled it in. */
+    @Column(columnDefinition = "TEXT")
+    private String sitterAvailability;
+
     private Integer sitterExperienceYears;
 
     @Column(columnDefinition = "TEXT")

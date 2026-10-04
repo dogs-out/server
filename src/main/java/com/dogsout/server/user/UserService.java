@@ -81,6 +81,15 @@ public class UserService {
         if (request.lookingForSitter() != null)   user.setLookingForSitter(request.lookingForSitter());
         if (request.sitterWeekdays() != null)     user.setSitterWeekdays(request.sitterWeekdays().isEmpty() ? null : String.join("||", request.sitterWeekdays()));
         if (request.sitterTimeSlots() != null)    user.setSitterTimeSlots(TimeSlots.join(request.sitterTimeSlots()));
+        if (request.sitterAvailability() != null) {
+            // The grid wins, and the old lists are rewritten from it so an older app
+            // version still shows the right days and times.
+            String grid = Availability.join(request.sitterAvailability());
+            user.setSitterAvailability(grid);
+            List<String> days = Availability.days(grid);
+            user.setSitterWeekdays(days.isEmpty() ? null : String.join("||", days));
+            user.setSitterTimeSlots(TimeSlots.join(Availability.slots(grid)));
+        }
         if (request.sitterExperienceYears() != null) user.setSitterExperienceYears(request.sitterExperienceYears());
         if (request.sitterTags() != null)         user.setSitterTags(request.sitterTags().isEmpty() ? null : String.join("||", request.sitterTags()));
         // Deliberately no "you must have a dog or be a sitter" rule any more. Losing
@@ -293,6 +302,7 @@ public class UserService {
                 Boolean.TRUE.equals(user.getLookingForSitter()),
                 user.getSitterWeekdays() != null ? Arrays.asList(user.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 TimeSlots.split(user.getSitterTimeSlots()),
+                Availability.split(user.getSitterAvailability()),
                 user.getSitterExperienceYears(),
                 user.getSitterTags() != null ? Arrays.asList(user.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 user.getCreatedAt(),

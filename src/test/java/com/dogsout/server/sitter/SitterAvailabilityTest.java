@@ -1,9 +1,8 @@
 package com.dogsout.server.sitter;
 
-import com.dogsout.server.matching.DiscoverService;
+import com.dogsout.server.user.Availability;
 import com.dogsout.server.user.User;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -25,8 +24,8 @@ class SitterAvailabilityTest {
     private static boolean available(String namedDays, List<String> asked) {
         User sitter = new User();
         sitter.setSitterWeekdays(namedDays);
-        return Boolean.TRUE.equals(
-                ReflectionTestUtils.invokeMethod(DiscoverService.class, "availableOn", sitter, asked));
+        // A sitter with only the old weekday list, as everyone had before the grid
+        return Availability.matches(sitter, asked, null);
     }
 
     private static boolean available(String namedDays, String asked) {
