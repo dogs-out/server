@@ -20,4 +20,10 @@ public interface SitterReviewRepository extends JpaRepository<SitterReview, Long
     double averageStars(User sitter);
 
     long countBySitterAndHiddenAtIsNull(User sitter);
+
+    /** Account deletion: reviews someone wrote, and reviews about them. */
+    void deleteByRaterOrSitter(User rater, User sitter);
+
+    /** Account deletion: reviews on the jobs someone posted, whoever wrote them. */
+    void deleteByRequestOwner(User owner);
 }

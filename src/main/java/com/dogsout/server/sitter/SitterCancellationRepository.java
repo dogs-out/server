@@ -13,4 +13,7 @@ public interface SitterCancellationRepository extends JpaRepository<SitterCancel
             User sitter, Instant since);
 
     long countBySitterAndLateIsTrueAndCreatedAtAfter(User sitter, Instant since);
+
+    /** Account deletion: a deleted sitter's strikes go with them. */
+    void deleteBySitter(User sitter);
 }

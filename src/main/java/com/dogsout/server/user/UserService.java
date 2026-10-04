@@ -48,6 +48,9 @@ public class UserService {
     private final PhotoService photoService;
     private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
     private final com.dogsout.server.sos.LostDogAlertRepository lostDogAlertRepository;
+    private final com.dogsout.server.sitter.SittingRequestRepository sittingRequestRepository;
+    private final com.dogsout.server.sitter.SitterReviewRepository sitterReviewRepository;
+    private final com.dogsout.server.sitter.SitterCancellationRepository sitterCancellationRepository;
 
     @Transactional(readOnly = true)
     public UserResponse getMe(String email) {
@@ -198,6 +201,7 @@ public class UserService {
     private void deleteUser(User user) {
         playdateService.deleteAllForUser(user);
         lostDogAlertRepository.deleteByOwner(user);
+        deleteDogsittingFor(user);
         // Messages reference matches, so they must go first
         messageRepository.deleteBySenderOrReceiver(user, user);
         matchRepository.deleteByUser1OrUser2(user, user);
@@ -216,8 +220,39 @@ public class UserService {
         List<UserPhoto> userPhotos = userPhotoRepository.findByUserOrderBySortOrderAsc(user);
         userPhotos.forEach(p -> keys.add(p.getStorageKey()));
         userPhotoRepository.deleteAll(userPhotos);
+        if (user.getWalkStatusPhotoKey() != null) keys.add(user.getWalkStatusPhotoKey());
         userRepository.delete(user);
         keys.forEach(photoService::delete);
+    }
+
+    /**
+     * Removes someone's dogsitting records, which all reference the user row and
+     * would otherwise make deleting it fail.
+     *
+     * <p>Reviews go first, since they point at jobs. A job the user posted is theirs
+     * and goes. A job they had taken belongs to the owner, so it stays: one still to
+     * come is opened again and the owner told — the same as a cancellation — and a
+     * finished one simply no longer names a sitter.
+     */
+    private void deleteDogsittingFor(User user) {
+        sitterReviewRepository.deleteByRaterOrSitter(user, user);
+        sitterReviewRepository.deleteByRequestOwner(user);
+        sitterCancellationRepository.deleteBySitter(user);
+        sittingRequestRepository.deleteAll(sittingRequestRepository.findByOwnerOrderByStartsAtAsc(user));
+
+        Instant now = Instant.now();
+        for (com.dogsout.server.sitter.SittingRequest job : sittingRequestRepository.findBySitterOrderByStartsAtAsc(user)) {
+            job.setSitter(null);
+            if (!job.isOver(now)) {
+                job.setStatus(com.dogsout.server.sitter.SittingRequestStatus.OPEN);
+                job.setAcceptedAt(null);
+                job.setDetailsSharedAt(null);
+                pushNotificationService.send(job.getOwner(), user.getName() + " is no longer on Dogs Out",
+                        "Your dogsitting request is open again so another sitter can take it.",
+                        java.util.Map.of("type", "SITTING_CANCELLED", "requestId", job.getId()));
+            }
+            sittingRequestRepository.save(job);
+        }
     }
 
     /** Dogs Out is an adults-only service; its terms and its store age ratings all say 18+. */
