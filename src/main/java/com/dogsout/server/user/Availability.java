@@ -81,6 +81,25 @@ public final class Availability {
         return false;
     }
 
+    /**
+     * Whether a stored grid covers any of the asked combinations. Used for owners'
+     * "when I need a sitter" grid, where an empty grid means "not said yet" and so
+     * stays in the list rather than vanishing from every filter.
+     */
+    public static boolean gridMatches(String stored, List<String> askedDays, List<String> askedSlots) {
+        Set<String> days = lower(askedDays);
+        Set<String> slots = lower(askedSlots);
+        List<String> grid = split(stored);
+        if ((days.isEmpty() && slots.isEmpty()) || grid.isEmpty()) return true;
+        for (String pair : grid) {
+            int colon = pair.indexOf(':');
+            String day = pair.substring(0, colon).toLowerCase(Locale.ROOT);
+            String slot = pair.substring(colon + 1).toLowerCase(Locale.ROOT);
+            if ((days.isEmpty() || days.contains(day)) && (slots.isEmpty() || slots.contains(slot))) return true;
+        }
+        return false;
+    }
+
     private static boolean weekdaysMatch(String stored, Set<String> askedDays) {
         if (askedDays.isEmpty() || stored == null || stored.isBlank()) return true;
         return Arrays.stream(stored.split("\\|\\|"))

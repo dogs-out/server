@@ -55,4 +55,18 @@ class AvailabilityTest {
         // Named nothing at all: stays listed, as before.
         assertThat(Availability.matches(new User(), List.of("Tuesday"), List.of("Morning"))).isTrue();
     }
+
+    @org.junit.jupiter.api.Test
+    void ownerGridMatchesAnyAskedDayAndTime() {
+        String grid = "Monday:Morning||Saturday:Evening";
+        org.assertj.core.api.Assertions.assertThat(Availability.gridMatches(grid, List.of("Saturday"), List.of("Evening"))).isTrue();
+        org.assertj.core.api.Assertions.assertThat(Availability.gridMatches(grid, List.of("Monday"), List.of("Evening"))).isFalse();
+        org.assertj.core.api.Assertions.assertThat(Availability.gridMatches(grid, List.of("Tuesday"), List.of())).isFalse();
+        org.assertj.core.api.Assertions.assertThat(Availability.gridMatches(grid, null, null)).isTrue();
+    }
+
+    @org.junit.jupiter.api.Test
+    void ownerWithoutGridStaysInEveryFilteredList() {
+        org.assertj.core.api.Assertions.assertThat(Availability.gridMatches(null, List.of("Friday"), List.of("Morning"))).isTrue();
+    }
 }

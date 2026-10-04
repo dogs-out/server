@@ -24,6 +24,7 @@ public record UserResponse(
         List<String> sitterWeekdays,
         List<String> sitterTimeSlots,
         List<String> sitterAvailability,
+        List<String> seekerAvailability,
         Integer sitterExperienceYears,
         List<String> sitterTags,
         LocalDateTime createdAt,

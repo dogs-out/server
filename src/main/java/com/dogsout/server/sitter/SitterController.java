@@ -27,8 +27,11 @@ public class SitterController {
     private final SitterReviewService sitterReviewService;
 
     @GetMapping("/seekers")
-    public ResponseEntity<List<DiscoverProfile>> getSeekers(Authentication auth) {
-        return ResponseEntity.ok(discoverService.getSeekerPool(auth.getName()));
+    public ResponseEntity<List<DiscoverProfile>> getSeekers(
+            Authentication auth,
+            @RequestParam(required = false) List<String> weekday,
+            @RequestParam(required = false) List<String> slot) {
+        return ResponseEntity.ok(discoverService.getSeekerPool(auth.getName(), weekday, slot));
     }
 
     /**

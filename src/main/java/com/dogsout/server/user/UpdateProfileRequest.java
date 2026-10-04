@@ -29,6 +29,7 @@ public record UpdateProfileRequest(
         List<String> sitterWeekdays,
         List<String> sitterTimeSlots,
         List<String> sitterAvailability,
+        List<String> seekerAvailability,
         @Min(0) @Max(10) Integer sitterExperienceYears,
         List<String> sitterTags,
         Integer maxDistanceKm,

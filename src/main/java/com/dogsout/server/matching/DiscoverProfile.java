@@ -24,6 +24,8 @@ public record DiscoverProfile(
         Integer sitterExperienceYears,
         List<String> sitterTags,
         boolean lookingForSitter,
+        /** When they usually need a sitter; empty unless they are looking for one. */
+        List<String> seekerAvailability,
         /**
          * True when this person, or one of their dogs, has a birthday today.
          *

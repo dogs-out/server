@@ -95,11 +95,20 @@ public class DiscoverService {
 
     /** Owners needing a sitter — the "jobs" side, visible only to sitters. */
     public List<DiscoverProfile> getSeekerPool(String email) {
+        return getSeekerPool(email, null, null);
+    }
+
+    /**
+     * Owners needing a sitter, optionally only those who need one on any of the given
+     * days and times. An owner who has not filled in their grid stays in the list.
+     */
+    public List<DiscoverProfile> getSeekerPool(String email, List<String> weekdays, List<String> timeSlots) {
         User me = requireUser(email);
         if (!Boolean.TRUE.equals(me.getIsSitter())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Turn on \"I'm a dogsitter\" to browse jobs");
         }
-        return sitterPool(me, u -> Boolean.TRUE.equals(u.getLookingForSitter()));
+        return sitterPool(me, u -> Boolean.TRUE.equals(u.getLookingForSitter())
+                && com.dogsout.server.user.Availability.gridMatches(u.getSeekerAvailability(), weekdays, timeSlots));
     }
 
     /** Sitters offering to sit — visible only to someone looking for a sitter. */
@@ -220,6 +229,8 @@ public class DiscoverService {
                 isSitter ? u.getSitterExperienceYears() : null,
                 isSitter && u.getSitterTags() != null ? Arrays.asList(u.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 Boolean.TRUE.equals(u.getLookingForSitter()),
+                Boolean.TRUE.equals(u.getLookingForSitter())
+                        ? com.dogsout.server.user.Availability.split(u.getSeekerAvailability()) : List.of(),
                 celebratingToday(u),
                 // Never null: somebody who has not picked a status is at home.
                 com.dogsout.server.user.WalkStatus.orDefault(u.activeWalkStatus()).name()

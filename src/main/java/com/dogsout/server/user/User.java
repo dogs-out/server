@@ -174,6 +174,14 @@ public class User {
     private String sitterAvailability;
 
     /**
+     * When an owner usually needs a sitter, in the same "Day:Slot" grid as
+     * {@link #sitterAvailability}. Kept apart from it: someone can both sit and need a
+     * sitter, and "when I am free" is not "when I am away".
+     */
+    @Column(columnDefinition = "TEXT")
+    private String seekerAvailability;
+
+    /**
      * Friends out with this user on the current walk, `||`-joined "userId:dogId"
      * pairs (the dog part may be empty). Checked against the matches when set and
      * cleared with the status — see UserService.updateStatus.

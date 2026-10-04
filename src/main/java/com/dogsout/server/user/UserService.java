@@ -93,6 +93,7 @@ public class UserService {
             user.setSitterWeekdays(days.isEmpty() ? null : String.join("||", days));
             user.setSitterTimeSlots(TimeSlots.join(Availability.slots(grid)));
         }
+        if (request.seekerAvailability() != null) user.setSeekerAvailability(Availability.join(request.seekerAvailability()));
         if (request.sitterExperienceYears() != null) user.setSitterExperienceYears(request.sitterExperienceYears());
         if (request.sitterTags() != null)         user.setSitterTags(request.sitterTags().isEmpty() ? null : String.join("||", request.sitterTags()));
         // Deliberately no "you must have a dog or be a sitter" rule any more. Losing
@@ -338,6 +339,7 @@ public class UserService {
                 user.getSitterWeekdays() != null ? Arrays.asList(user.getSitterWeekdays().split(TAG_SPLIT_REGEX)) : List.of(),
                 TimeSlots.split(user.getSitterTimeSlots()),
                 Availability.split(user.getSitterAvailability()),
+                Availability.split(user.getSeekerAvailability()),
                 user.getSitterExperienceYears(),
                 user.getSitterTags() != null ? Arrays.asList(user.getSitterTags().split(TAG_SPLIT_REGEX)) : List.of(),
                 user.getCreatedAt(),
