@@ -78,7 +78,8 @@ public class PlaydateService {
                     };
                 })
                 .sorted(Comparator.comparing(Playdate::getStartsAt))
-                .map(p -> toResponse(p, me, false))
+                // A walk is two people, so who it is with is cheap and is what its card shows
+                .map(p -> toResponse(p, me, Boolean.TRUE.equals(p.getWalk())))
                 .toList();
     }
 
