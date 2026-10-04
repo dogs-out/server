@@ -55,6 +55,15 @@ public class PlaydateService {
 
     @Transactional(readOnly = true)
     public List<PlaydateResponse> getFeed(String email) {
+        return getFeed(email, null, null);
+    }
+
+    /**
+     * The feed, optionally narrowed to playdates starting on any of the given weekdays
+     * and at any of the given times of day — the same filter as the sitter lists. Your
+     * own and the ones you joined are always kept: a filter is for finding new ones.
+     */
+    public List<PlaydateResponse> getFeed(String email, List<String> weekdays, List<String> slots) {
         User me = findUser(email);
         Set<Long> blocked = blockedUserIds(me);
         Set<Long> matchedIds = matchedUserIds(me);
@@ -77,6 +86,9 @@ public class PlaydateService {
                         case INVITE_ONLY -> false; // only via participant row, handled above
                     };
                 })
+                .filter(p -> p.getHost().getId().equals(me.getId())
+                        || minePlaydateIds.contains(p.getId())
+                        || startsWithin(p.getStartsAt(), weekdays, slots))
                 .sorted(Comparator.comparing(Playdate::getStartsAt))
                 // A walk is two people, so who it is with is cheap and is what its card shows
                 .map(p -> toResponse(p, me, Boolean.TRUE.equals(p.getWalk())))
@@ -355,6 +367,27 @@ public class PlaydateService {
         }
         messageRepository.deleteBySender(user);
         participantRepository.deleteByUser(user);
+    }
+
+    private static final java.time.ZoneId ZURICH = java.time.ZoneId.of("Europe/Zurich");
+
+    /**
+     * Whether a start time falls on any asked weekday and in any asked time of day,
+     * in Swiss time. Morning is before 12:00, afternoon 12:00–16:00, evening from
+     * 16:00 — the sitter slots, stretched to cover the whole day so an early walk
+     * still counts as a morning. Empty lists mean "any".
+     */
+    static boolean startsWithin(Instant startsAt, List<String> weekdays, List<String> slots) {
+        java.time.ZonedDateTime t = startsAt.atZone(ZURICH);
+        String day = t.getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+        String slot = t.getHour() < 12 ? "Morning" : t.getHour() < 16 ? "Afternoon" : "Evening";
+        return anyOrContains(weekdays, day) && anyOrContains(slots, slot);
+    }
+
+    private static boolean anyOrContains(List<String> wanted, String value) {
+        if (wanted == null) return true;
+        List<String> clean = wanted.stream().filter(w -> w != null && !w.isBlank()).toList();
+        return clean.isEmpty() || clean.stream().anyMatch(w -> w.trim().equalsIgnoreCase(value));
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

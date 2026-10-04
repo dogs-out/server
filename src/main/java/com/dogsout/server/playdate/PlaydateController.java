@@ -16,9 +16,16 @@ public class PlaydateController {
 
     private final PlaydateService playdateService;
 
+    /**
+     * @param weekday optional, comma-separated or repeated: playdates on any one of these days
+     * @param slot    optional, same shape: "Morning", "Afternoon", "Evening" — by start time
+     */
     @GetMapping
-    public ResponseEntity<List<PlaydateResponse>> getFeed(Authentication auth) {
-        return ResponseEntity.ok(playdateService.getFeed(auth.getName()));
+    public ResponseEntity<List<PlaydateResponse>> getFeed(
+            Authentication auth,
+            @RequestParam(required = false) List<String> weekday,
+            @RequestParam(required = false) List<String> slot) {
+        return ResponseEntity.ok(playdateService.getFeed(auth.getName(), weekday, slot));
     }
 
     @PostMapping
