@@ -48,6 +48,8 @@ public record UserResponse(
         Long walkStatusDogId,
         /** Optional photo attached to the current status. */
         String walkStatusPhoto,
+        /** Friends out with this user on the current status; empty when none or not out. */
+        List<StatusCompanion> walkStatusCompanions,
         /** Today is this account's birthday, or one of its dogs'. Month and day only. */
         boolean celebratingToday,
         /** Today is the person's own birthday. */

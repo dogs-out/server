@@ -173,6 +173,14 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String sitterAvailability;
 
+    /**
+     * Friends out with this user on the current walk, `||`-joined "userId:dogId"
+     * pairs (the dog part may be empty). Checked against the matches when set and
+     * cleared with the status — see UserService.updateStatus.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String walkStatusCompanions;
+
     private Integer sitterExperienceYears;
 
     @Column(columnDefinition = "TEXT")

@@ -15,6 +15,8 @@ import jakarta.validation.constraints.Size;
  * @param keepPhoto  keeps a photo already attached; absent means the status change drops it.
  * @param indefinite leaves the status standing until it is changed; only honoured
  *                   by the statuses that may be open-ended.
+ * @param companions friends out with you, each with the dog of theirs that came;
+ *                   only kept for out-and-about statuses, and only for matches.
  */
 public record UpdateStatusRequest(
         WalkStatus status,
@@ -24,5 +26,6 @@ public record UpdateStatusRequest(
         @Size(max = 120) String placeName,
         Long dogId,
         Boolean keepPhoto,
-        Boolean indefinite
+        Boolean indefinite,
+        @jakarta.validation.constraints.Size(max = 5) java.util.List<StatusCompanion.Pick> companions
 ) {}

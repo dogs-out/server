@@ -31,5 +31,7 @@ public record FriendStatus(
         String photo,
         Instant until,
         /** Rounded, like everywhere else — see DiscoverService.coarseDistanceKm; -1 when unknown. */
-        double distanceKm
+        double distanceKm,
+        /** Friends out with them right now; empty unless they are out and named some. */
+        List<StatusCompanion> companions
 ) {}

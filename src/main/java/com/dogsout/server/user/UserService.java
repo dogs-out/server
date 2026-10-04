@@ -323,6 +323,7 @@ public class UserService {
                         ? null : user.getWalkStatusDog().getId(),
                 user.activeWalkStatus() == null
                         ? null : photoService.url(user.getWalkStatusPhotoKey(), PhotoRendition.FEED),
+                companionsOf(user),
                 celebratingToday(user),
                 isSameDayOfYear(user.getDateOfBirth(), LocalDate.now(ZoneId.systemDefault())),
                 dogBirthdaysToday(user)
@@ -365,6 +366,7 @@ public class UserService {
             user.setWalkStatusLongitude(sharesPoint ? request.longitude() : null);
             user.setWalkStatusPlaceName(sharesPoint ? trimToNull(request.placeName()) : null);
             user.setWalkStatusDog(status.needsSatDog() ? requireSittableDog(user, request.dogId()) : null);
+            user.setWalkStatusCompanions(status.isOutAndAbout() ? companionsFor(user, request.companions()) : null);
             // Keeping the photo is opt-in, so a plain status update clears it.
             user.setWalkStatusPhotoKey(Boolean.TRUE.equals(request.keepPhoto()) ? previousPhoto : null);
         }
@@ -383,6 +385,57 @@ public class UserService {
         user.setWalkStatusPlaceName(null);
         user.setWalkStatusDog(null);
         user.setWalkStatusPhotoKey(null);
+        user.setWalkStatusCompanions(null);
+    }
+
+    /**
+     * Keeps only companions who are this user's matches, and only dogs that belong to
+     * the companion they are listed under. Anything else is dropped rather than
+     * rejected — same as the status point: a status should never be able to name a
+     * stranger, or someone else's dog, by sending the wrong ids.
+     */
+    private String companionsFor(User me, List<StatusCompanion.Pick> picks) {
+        if (picks == null || picks.isEmpty()) return null;
+        java.util.Set<Long> matched = new java.util.HashSet<>();
+        matchRepository.findAllMatchesForUser(me.getId()).forEach(m ->
+                matched.add(m.getUser1().getId().equals(me.getId()) ? m.getUser2().getId() : m.getUser1().getId()));
+        java.util.LinkedHashMap<Long, Long> kept = new java.util.LinkedHashMap<>();
+        for (StatusCompanion.Pick pick : picks) {
+            if (pick == null || pick.userId() == null || !matched.contains(pick.userId())) continue;
+            if (blockRepository.existsBlockBetween(me.getId(), pick.userId())) continue;
+            Long dogId = pick.dogId() == null ? null : dogRepository.findById(pick.dogId())
+                    .filter(d -> d.getOwner() != null && d.getOwner().getId().equals(pick.userId()))
+                    .map(Dog::getId).orElse(null);
+            kept.putIfAbsent(pick.userId(), dogId);
+            if (kept.size() == 5) break;
+        }
+        if (kept.isEmpty()) return null;
+        return kept.entrySet().stream()
+                .map(e -> e.getKey() + ":" + (e.getValue() == null ? "" : e.getValue()))
+                .collect(java.util.stream.Collectors.joining("||"));
+    }
+
+    /** Companions as shown, skipping anyone or any dog that has since been deleted. */
+    List<StatusCompanion> companionsOf(User user) {
+        WalkStatus active = user.activeWalkStatus();
+        String stored = user.getWalkStatusCompanions();
+        if (active == null || !active.isOutAndAbout() || stored == null || stored.isBlank()) return List.of();
+        List<StatusCompanion> out = new java.util.ArrayList<>();
+        for (String pair : stored.split("\\|\\|")) {
+            String[] parts = pair.split(":", -1);
+            try {
+                Long userId = Long.valueOf(parts[0]);
+                User friend = userRepository.findById(userId).orElse(null);
+                if (friend == null) continue;
+                String dogName = parts.length > 1 && !parts[1].isBlank()
+                        ? dogRepository.findById(Long.valueOf(parts[1])).map(Dog::getName).orElse(null)
+                        : null;
+                out.add(new StatusCompanion(friend.getId(), friend.getName(), dogName));
+            } catch (NumberFormatException ignored) {
+                // a malformed pair is skipped, not fatal
+            }
+        }
+        return out;
     }
 
     private static String trimToNull(String value) {
@@ -485,7 +538,8 @@ public class UserService {
                         other.getWalkStatusPlaceName(),
                         photoService.url(other.getWalkStatusPhotoKey(), PhotoRendition.FEED),
                         other.getWalkStatusExpiresAt(),
-                        distanceTo(me, other)))
+                        distanceTo(me, other),
+                        companionsOf(other)))
                 // Whoever is out comes first — that is the part you can act on —
                 // then nearest first within each group, with the ones who shared no
                 // point after them rather than at the top, where a distance of -1
