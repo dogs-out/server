@@ -49,6 +49,7 @@ public class UserService {
     private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
     private final com.dogsout.server.sos.LostDogAlertRepository lostDogAlertRepository;
     private final com.dogsout.server.sitter.SittingRequestRepository sittingRequestRepository;
+    private final UserActivityDayRepository userActivityDayRepository;
     private final com.dogsout.server.sitter.SitterReviewRepository sitterReviewRepository;
     private final com.dogsout.server.sitter.SitterCancellationRepository sitterCancellationRepository;
 
@@ -203,6 +204,7 @@ public class UserService {
         playdateService.deleteAllForUser(user);
         lostDogAlertRepository.deleteByOwner(user);
         deleteDogsittingFor(user);
+        userActivityDayRepository.deleteByUserId(user.getId());
         // Messages reference matches, so they must go first
         messageRepository.deleteBySenderOrReceiver(user, user);
         matchRepository.deleteByUser1OrUser2(user, user);

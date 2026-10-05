@@ -57,7 +57,8 @@ class JwtRenewalTest {
         ReflectionTestUtils.setField(jwtUtil, "secret", SECRET);
         ReflectionTestUtils.setField(jwtUtil, "expiration", THIRTY_DAYS);
         ReflectionTestUtils.setField(jwtUtil, "refreshAfter", ONE_DAY);
-        filter = new JwtAuthFilter(jwtUtil, userDetailsService, userRepository);
+        filter = new JwtAuthFilter(jwtUtil, userDetailsService, userRepository,
+                org.mockito.Mockito.mock(com.dogsout.server.user.ActivityTracker.class));
     }
 
     /** A token as it would have been issued at some point in the past. */

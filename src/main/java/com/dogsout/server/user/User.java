@@ -181,6 +181,17 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String seekerAvailability;
 
+    /** Last authenticated request, at most a few minutes stale — see ActivityTracker. */
+    private Instant lastActiveAt;
+
+    /** "IOS" or "ANDROID", from the last request that said or showed which. */
+    @Column(length = 16)
+    private String lastPlatform;
+
+    /** App version or build of the last request that carried one. */
+    @Column(length = 32)
+    private String lastAppVersion;
+
     /**
      * Friends out with this user on the current walk, `||`-joined "userId:dogId"
      * pairs (the dog part may be empty). Checked against the matches when set and

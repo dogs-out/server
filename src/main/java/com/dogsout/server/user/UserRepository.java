@@ -21,4 +21,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
                AND (birthday_greeted_year IS NULL OR birthday_greeted_year <> :year)
             """, nativeQuery = true)
     List<User> findBirthdaysOn(@Param("month") int month, @Param("day") int day, @Param("year") int year);
+
+    /** Touches only the activity columns, so it can never overwrite a concurrent profile save. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query("""
+            update User u set u.lastActiveAt = :at,
+                u.lastPlatform = coalesce(:platform, u.lastPlatform),
+                u.lastAppVersion = coalesce(:version, u.lastAppVersion)
+            where u.email = :email""")
+    int recordActivity(String email, java.time.Instant at, String platform, String version);
+
+    @org.springframework.data.jpa.repository.Query("select u.id from User u where u.email = :email")
+    Long findIdByEmail(String email);
 }

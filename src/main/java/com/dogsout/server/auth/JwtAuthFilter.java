@@ -34,6 +34,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
     private final UserRepository userRepository;
+    private final com.dogsout.server.user.ActivityTracker activityTracker;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -57,6 +58,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     );
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
+                    activityTracker.touch(email, request.getHeader("X-Client-Platform"),
+                            request.getHeader("X-App-Version"), request.getHeader("User-Agent"));
 
                     // Deliberately after the revocation check: a token that a password
                     // change has already invalidated must never be renewed into a
