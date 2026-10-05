@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 @Transactional
 @RequiredArgsConstructor
 public class ModerationService {
@@ -120,7 +121,7 @@ public class ModerationService {
                 photoLinks(reported, request.reason()));
 
         saveReport("CHAT", me, reported, match.getId(), null, request, body);
-        emailService.sendReportEmail(adminEmail,
+        notifyAdmin(
                 "User report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
     }
 
@@ -176,7 +177,7 @@ public class ModerationService {
                 photoLinks(reported, request.reason()));
 
         saveReport("PROFILE", me, reported, null, null, request, body);
-        emailService.sendReportEmail(adminEmail,
+        notifyAdmin(
                 "Profile report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
     }
 
@@ -240,10 +241,22 @@ public class ModerationService {
 
         // Filed against the author: it is their words being reported.
         saveReport("REVIEW", me, author, null, review.getId(), request, body);
-        emailService.sendReportEmail(adminEmail,
+        notifyAdmin(
                 "Review report: %s on %s (review id %d)".formatted(
                         author.getName(), about.getName(), review.getId()),
                 body);
+    }
+
+    /**
+     * The email is a heads-up, not the record: the report is already saved, so a
+     * mail-service outage must not turn the user's report into an error.
+     */
+    private void notifyAdmin(String subject, String body) {
+        try {
+            emailService.sendReportEmail(adminEmail, subject, body);
+        } catch (RuntimeException e) {
+            log.warn("Report saved, but the notification email failed: {}", e.getMessage());
+        }
     }
 
     /** Keeps the report for the admin page; the email stays as the notification. */

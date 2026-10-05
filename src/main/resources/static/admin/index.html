@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Dogs Out Admin</title>
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+
+<section id="login" class="login hidden">
+  <form id="login-form" autocomplete="on">
+    <h1>Dogs Out Admin</h1>
+    <p class="muted small">Sign in with an account that has the admin role.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary block" type="submit">Sign in</button>
+    <div class="error" id="login-error" role="alert"></div>
+  </form>
+</section>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="brand">Dogs Out <span>admin</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="reports">Reports <span class="count hidden" id="reports-count"></span></button>
+      <button data-tab="users">Users</button>
+      <button data-tab="online">Online</button>
+      <button data-tab="server">Server</button>
+    </nav>
+    <div class="who"><span class="muted" id="who"></span><button class="btn" id="logout">Sign out</button></div>
+  </header>
+
+  <main>
+    <section id="tab-overview"></section>
+    <section id="tab-reports" class="hidden"></section>
+    <section id="tab-users" class="hidden"></section>
+    <section id="tab-online" class="hidden"></section>
+    <section id="tab-server" class="hidden"></section>
+  </main>
+</div>
+
+<div id="drawer-root"></div>
+
+<script src="/admin/admin.js"></script>
+</body>
+</html>
