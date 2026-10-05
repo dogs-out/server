@@ -54,6 +54,11 @@ public class ChatSocketHandler extends TextWebSocketHandler {
         return sessionsByUser.containsKey(userId);
     }
 
+    /** Everyone with the app open right now — for the admin page. */
+    public java.util.Set<Long> onlineUserIds() {
+        return java.util.Set.copyOf(sessionsByUser.keySet());
+    }
+
     public void sendToUser(Long userId, ChatSocketEvent event) {
         Set<WebSocketSession> sessions = sessionsByUser.get(userId);
         if (sessions == null) return;

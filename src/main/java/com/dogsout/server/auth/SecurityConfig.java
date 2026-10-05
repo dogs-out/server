@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/app-ads.txt").permitAll()
                         // The public website: the overview page and its stylesheet
                         .requestMatchers("/", "/index.html", "/site.css").permitAll()
+                        // The admin page itself is static and logs in through /auth; its data is not.
+                        .requestMatchers("/admin", "/admin/", "/admin/index.html", "/admin/admin.js", "/admin/admin.css").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
@@ -48,7 +50,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:8081", "http://localhost:19006"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         // Response headers are hidden from browser JS unless named here. The native
         // app is unaffected, but the web target would silently never renew.

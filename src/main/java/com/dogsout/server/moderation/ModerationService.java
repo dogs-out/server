@@ -42,6 +42,7 @@ public class ModerationService {
     private final com.dogsout.server.user.UserPhotoRepository userPhotoRepository;
     private final com.dogsout.server.dog.DogPhotoRepository dogPhotoRepository;
     private final EmailService emailService;
+    private final ReportRepository reportRepository;
     private final PhotoService photoService;
     private final com.dogsout.server.sitter.SitterReviewRepository sitterReviewRepository;
 
@@ -118,6 +119,7 @@ public class ModerationService {
                 transcript,
                 photoLinks(reported, request.reason()));
 
+        saveReport("CHAT", me, reported, match.getId(), null, request, body);
         emailService.sendReportEmail(adminEmail,
                 "User report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
     }
@@ -173,6 +175,7 @@ public class ModerationService {
                 userPhotoRepository.findByUserOrderBySortOrderAsc(reported).size(),
                 photoLinks(reported, request.reason()));
 
+        saveReport("PROFILE", me, reported, null, null, request, body);
         emailService.sendReportEmail(adminEmail,
                 "Profile report: %s (id %d)".formatted(reported.getName(), reported.getId()), body);
     }
@@ -235,10 +238,31 @@ public class ModerationService {
                 alreadyHidden ? "by an earlier report" : "by this report",
                 review.getId());
 
+        // Filed against the author: it is their words being reported.
+        saveReport("REVIEW", me, author, null, review.getId(), request, body);
         emailService.sendReportEmail(adminEmail,
                 "Review report: %s on %s (review id %d)".formatted(
                         author.getName(), about.getName(), review.getId()),
                 body);
+    }
+
+    /** Keeps the report for the admin page; the email stays as the notification. */
+    private void saveReport(String kind, User reporter, User reported, Long matchId, Long reviewId,
+                            ReportRequest request, String details) {
+        Report report = new Report();
+        report.setKind(kind);
+        report.setReporterId(reporter.getId());
+        report.setReporterName(reporter.getName());
+        report.setReporterEmail(reporter.getEmail());
+        report.setReportedId(reported.getId());
+        report.setReportedName(reported.getName());
+        report.setReportedEmail(reported.getEmail());
+        report.setMatchId(matchId);
+        report.setReviewId(reviewId);
+        report.setReason(request.reason());
+        report.setMessage(request.message() == null || request.message().isBlank() ? null : request.message().trim());
+        report.setDetails(details);
+        reportRepository.save(report);
     }
 
     /**
