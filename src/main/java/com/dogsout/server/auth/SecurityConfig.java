@@ -49,7 +49,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:8081", "http://localhost:19006"));
+        // Our own website (the admin page) plus the Expo web dev servers. The native
+        // app sends no Origin header and is not affected by this list.
+        config.setAllowedOrigins(List.of("https://api.dogsout.app", "https://dogsout.app",
+                "http://localhost:8081", "http://localhost:19006"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         // Response headers are hidden from browser JS unless named here. The native
