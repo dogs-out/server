@@ -109,12 +109,6 @@ public class DogService {
         if (!photo.getDog().getId().equals(dogId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your photo");
         }
-        // Every dog keeps at least one photo: a card without one is a blank in
-        // Discover. Replacing the only photo means adding the new one first.
-        if (dogPhotoRepository.countByDog(dog) <= 1) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A dog needs at least one photo. Add another photo before removing this one.");
-        }
         dogPhotoRepository.delete(photo);
         List<DogPhoto> remaining = dogPhotoRepository.findByDogOrderBySortOrderAsc(dog);
         dog.setProfilePictureKey(remaining.isEmpty() ? null : remaining.get(0).getStorageKey());
