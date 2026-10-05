@@ -15,6 +15,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
     Optional<Match> findFirstByUser1AndUser2AndStatusOrderByIdAsc(User user1, User user2, MatchStatus status);
 
+    /** Matches whose first liker has not been shown the match screen yet. */
+    java.util.List<Match> findByUser1AndStatusAndUser1CelebratedFalse(User user1, MatchStatus status);
+
     @Query("SELECT m.user2.id FROM Match m WHERE m.user1.id = :userId")
     List<Long> findSwipedUserIdsByUser1Id(@Param("userId") Long userId);
 

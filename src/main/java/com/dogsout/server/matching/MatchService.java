@@ -68,6 +68,8 @@ public class MatchService {
             if (theirPending.isPresent()) {
                 Match mutual = theirPending.get();
                 mutual.setStatus(MatchStatus.MATCHED);
+                // The target liked first and has not seen this happen — show it to them next time.
+                mutual.setUser1Celebrated(false);
                 matchRepository.save(mutual);
                 // The other user finds out live — the swiper sees the match overlay anyway
                 chatSocketHandler.sendToUser(target.getId(), ChatSocketEvent.newMatch(mutual.getId()));
@@ -110,6 +112,32 @@ public class MatchService {
                         (MatchResponse m) -> m.lastMessageSentAt() != null ? m.lastMessageSentAt() : m.matchedAt(),
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
+    }
+
+    /**
+     * Matches this user liked first and has not been shown yet, newest first. The
+     * app shows the match screen for each and then calls {@link #markCelebrated}.
+     */
+    public List<MatchResponse> getUncelebrated(String email) {
+        User me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        java.util.Set<Long> blocked = new java.util.HashSet<>(blockRepository.findBlockedIdsByBlockerId(me.getId()));
+        blocked.addAll(blockRepository.findBlockerIdsByBlockedId(me.getId()));
+        return matchRepository.findByUser1AndStatusAndUser1CelebratedFalse(me, MatchStatus.MATCHED).stream()
+                .filter(m -> !blocked.contains(m.getUser2().getId()))
+                .sorted(Comparator.comparing(Match::getId).reversed())
+                .map(m -> toMatchResponse(m, me))
+                .toList();
+    }
+
+    /** Idempotent; only the first liker's flag, and only on their own match. */
+    public void markCelebrated(String email, Long matchId) {
+        User me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        matchRepository.findById(matchId)
+                .filter(m -> m.getUser1().getId().equals(me.getId()))
+                .filter(m -> Boolean.FALSE.equals(m.getUser1Celebrated()))
+                .ifPresent(m -> { m.setUser1Celebrated(true); matchRepository.save(m); });
     }
 
     private MatchResponse toMatchResponse(Match match, User me) {

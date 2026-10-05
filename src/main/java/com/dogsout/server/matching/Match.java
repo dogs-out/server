@@ -35,4 +35,13 @@ public class Match {
     @CreationTimestamp
     @Column(updatable = false)
     private Instant createdAt;
+
+    /**
+     * Whether user1 — who liked first — has seen the "It's a Match!" screen. The
+     * second swiper sees it the moment they swipe; the first liker only finds out
+     * later, so the app shows it to them on their next visit. False is "still to
+     * show"; null means there is nothing to celebrate (matches from before this
+     * existed, or a chat opened through Dogsitting, which is not a mutual like).
+     */
+    private Boolean user1Celebrated;
 }
