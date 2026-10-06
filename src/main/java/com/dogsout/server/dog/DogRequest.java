@@ -20,6 +20,7 @@ public record DogRequest(
         String socialBehavior,
         List<String> loves,
         String offLeash,
+        @Pattern(regexp = "MALE|FEMALE", message = "Sex must be MALE or FEMALE") String sex,
         Integer kidsComfort,
         List<String> tags
 ) {}

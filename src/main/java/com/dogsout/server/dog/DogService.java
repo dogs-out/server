@@ -149,6 +149,7 @@ public class DogService {
         if (req.energyLevel() != null)  dog.setEnergyLevel(req.energyLevel());
         if (req.socialBehavior() != null) dog.setSocialBehavior(req.socialBehavior());
         if (req.offLeash() != null)     dog.setOffLeash(req.offLeash());
+        if (req.sex() != null)          dog.setSex(req.sex());
         if (req.kidsComfort() != null)  dog.setKidsComfort(req.kidsComfort());
         if (req.loves() != null)        dog.setLoves(req.loves().isEmpty() ? null : String.join("||", req.loves()));
         if (req.tags() != null)         dog.setTags(req.tags().isEmpty() ? null : String.join("||", req.tags()));
@@ -221,6 +222,7 @@ public class DogService {
                 dog.getSocialBehavior(),
                 dog.getLoves() != null ? Arrays.asList(dog.getLoves().split("\\|\\|")) : List.of(),
                 dog.getOffLeash(),
+                dog.getSex(),
                 dog.getKidsComfort(),
                 dog.getTags() != null ? Arrays.asList(dog.getTags().split("\\|\\|")) : List.of(),
                 photos

@@ -196,7 +196,7 @@ public class DiscoverService {
                             dog.getCreatedAt(),
                             dog.getEnergyLevel(), dog.getSocialBehavior(),
                             dog.getLoves() != null ? Arrays.asList(dog.getLoves().split(TAG_SPLIT_REGEX)) : List.of(),
-                            dog.getOffLeash(), dog.getKidsComfort(),
+                            dog.getOffLeash(), dog.getSex(), dog.getKidsComfort(),
                             dog.getTags() != null ? Arrays.asList(dog.getTags().split(TAG_SPLIT_REGEX)) : List.of(),
                             dogPhotos
                     );

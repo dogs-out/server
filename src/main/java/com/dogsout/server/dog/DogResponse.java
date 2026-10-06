@@ -19,6 +19,8 @@ public record DogResponse(
         String socialBehavior,
         List<String> loves,
         String offLeash,
+        /** "MALE", "FEMALE", or null if the owner has not said. */
+        String sex,
         Integer kidsComfort,
         List<String> tags,
         List<DogPhotoResponse> photos

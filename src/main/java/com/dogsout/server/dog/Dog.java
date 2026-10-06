@@ -49,6 +49,14 @@ public class Dog {
     private String offLeash;
     private Integer kidsComfort;
 
+    /**
+     * "MALE" or "FEMALE"; null for dogs saved before it was asked. A string, not an
+     * enum: Hibernate's CHECK constraint for enum columns goes stale in production.
+     * Owners asked for it because many dogs behave differently with males and females.
+     */
+    @Column(length = 8)
+    private String sex;
+
     @Column(columnDefinition = "TEXT")
     private String tags;
 
