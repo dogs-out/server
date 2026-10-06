@@ -28,6 +28,18 @@ public class PlacesService {
     private String apiKey;
 
     public List<PlaceResult> searchParks(String query, Double lat, Double lng) {
+        return search(query, lat, lng, true);
+    }
+
+    /**
+     * Towns, postcodes and addresses — for setting your own location without GPS,
+     * where a park-only search would never find "8044 Zürich".
+     */
+    public List<PlaceResult> searchAreas(String query, Double lat, Double lng) {
+        return search(query, lat, lng, false);
+    }
+
+    private List<PlaceResult> search(String query, Double lat, Double lng, boolean parksOnly) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Park search is not configured on this server");
@@ -35,7 +47,7 @@ public class PlacesService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("textQuery", query);
-        body.put("includedType", "park");
+        if (parksOnly) body.put("includedType", "park");
         body.put("maxResultCount", 10);
         if (lat != null && lng != null) {
             body.put("locationBias", Map.of("circle", Map.of(
