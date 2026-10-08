@@ -1,0 +1,4 @@
+# Crawlers welcome on the public pages (and app-ads.txt, which AdMob verifies).
+User-agent: *
+Allow: /
+Disallow: /admin

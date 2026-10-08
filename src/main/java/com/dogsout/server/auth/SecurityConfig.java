@@ -34,7 +34,7 @@ public class SecurityConfig {
                         // /ws authenticates itself via JWT in the handshake interceptor
                         .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
                         // AdMob verifies the app by fetching this from the developer site in the store listing
-                        .requestMatchers("/app-ads.txt").permitAll()
+                        .requestMatchers("/app-ads.txt", "/robots.txt").permitAll()
                         // The public website: the overview page and its stylesheet
                         .requestMatchers("/", "/index.html", "/site.css").permitAll()
                         // The admin page itself is static and logs in through /auth; its data is not.
