@@ -36,6 +36,8 @@ public record UserResponse(
         Integer maxDogAge,
         Boolean notificationsEnabled,
         boolean termsAccepted,
+        /** When the terms were last accepted; the app asks again when its terms are newer. */
+        java.time.Instant termsAcceptedAt,
         /**
          * Never null: an account that has not picked one reads as AT_HOME, which
          * is where everyone starts. Expired statuses fall back to it too.

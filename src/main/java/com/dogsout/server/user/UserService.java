@@ -353,6 +353,7 @@ public class UserService {
                 user.getMaxDogAge(),
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
                 user.getTermsAcceptedAt() != null,
+                user.getTermsAcceptedAt(),
                 WalkStatus.orDefault(user.activeWalkStatus()).name(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusExpiresAt(),
                 user.activeWalkStatus() == null ? null : user.getWalkStatusLatitude(),
@@ -682,16 +683,15 @@ public class UserService {
     }
 
     /**
-     * Records that this account has accepted the terms.
+     * Records that this account has accepted the terms, now.
      *
-     * <p>Idempotent on purpose: a retry after a dropped response should not look
-     * like a second acceptance, and the first time is the one that matters.
+     * <p>The latest acceptance is what counts: when the terms change, the app shows
+     * them again to anyone whose acceptance is older, and this moves the date on. A
+     * retried request just records the same acceptance a moment later.
      */
     public void acceptTerms(String email) {
         User user = findUser(email);
-        if (user.getTermsAcceptedAt() == null) {
-            user.setTermsAcceptedAt(java.time.Instant.now());
-            userRepository.save(user);
-        }
+        user.setTermsAcceptedAt(java.time.Instant.now());
+        userRepository.save(user);
     }
 }
