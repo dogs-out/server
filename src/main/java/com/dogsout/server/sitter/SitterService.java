@@ -77,12 +77,26 @@ public class SitterService {
      */
     public List<SittingRequestResponse> openRequests(String email) {
         User me = findUser(email);
+        // Within the same distance as the lists of owners and sitters below them
+        // (the account's search distance, 50 km by default). Jobs used to come from
+        // everywhere — a job 9,000 km away is no use to a sitter. Without a saved
+        // location there is nothing to measure from, so nothing is filtered.
+        boolean hasLocation = me.getLatitude() != null && me.getLongitude() != null;
+        double maxDist = me.getMaxDistanceKm() != null ? me.getMaxDistanceKm() : DEFAULT_MAX_DISTANCE_KM;
         return sittingRequestRepository
                 .findByStatusAndEndsAtAfterOrderByStartsAtAsc(SittingRequestStatus.OPEN, Instant.now())
                 .stream()
                 .filter(r -> !blockRepository.existsBlockBetween(me.getId(), r.getOwner().getId()))
+                .filter(r -> !hasLocation || withinDistance(me, r.getOwner(), maxDist))
                 .map(r -> toResponse(r, me))
                 .toList();
+    }
+
+    private static final double DEFAULT_MAX_DISTANCE_KM = 50.0;
+
+    private static boolean withinDistance(User me, User other, double maxKm) {
+        return other.getLatitude() != null && other.getLongitude() != null
+                && GeoUtil.distanceKm(me.getLatitude(), me.getLongitude(), other.getLatitude(), other.getLongitude()) <= maxKm;
     }
 
     /** What this account has posted, open or closed, so it can be managed. */
