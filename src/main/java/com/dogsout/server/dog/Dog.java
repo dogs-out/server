@@ -57,6 +57,12 @@ public class Dog {
     @Column(length = 8)
     private String sex;
 
+    /**
+     * Neutered or spayed; null for dogs saved before it was asked. Owners use it to
+     * judge how two dogs will get on, so the dog form requires it.
+     */
+    private Boolean neutered;
+
     @Column(columnDefinition = "TEXT")
     private String tags;
 

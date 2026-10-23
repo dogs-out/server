@@ -31,8 +31,9 @@ public class ProfanityFilter {
 
     // Short/ambiguous words — whole-word matches only, so ordinary words
     // like "Wasser", "passt", "Barsch", "Cocker", "schwanken" stay clean.
+    // No "dick": as a whole word it is German for fat ("unser Rüde ist dick geworden").
     private static final Pattern WORD_PATTERN = Pattern.compile(
-        "\\b(ass|fag|kike|dick|cock|pussy|slut|twat|wank|prick|crap|shit|"
+        "\\b(ass|fag|kike|cock|pussy|slut|twat|wank|prick|crap|shit|"
         + "fick|arsch|wichse|wixer|hure|nutte|kacke|kacken|bumsen|pisser|voegeln)\\b"
     );
 

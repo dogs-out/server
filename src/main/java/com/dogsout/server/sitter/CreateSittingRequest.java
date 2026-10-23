@@ -14,5 +14,12 @@ public record CreateSittingRequest(
         @NotNull Instant startsAt,
         @NotNull Instant endsAt,
         @NotNull List<Long> dogIds,
-        @Size(max = 500) String note
-) {}
+        @Size(max = 500) String note,
+        /** Weekly series only: the weekdays ("TUESDAY") and the last day it runs. startsAt/endsAt are then the first visit. */
+        List<String> repeatWeekdays,
+        java.time.LocalDate repeatUntil
+) {
+    public CreateSittingRequest(Instant startsAt, Instant endsAt, List<Long> dogIds, String note) {
+        this(startsAt, endsAt, dogIds, note, null, null);
+    }
+}

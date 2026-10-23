@@ -6,7 +6,7 @@
 
   const TOKEN_KEY = 'dogsout-admin-token';
   const $ = sel => document.querySelector(sel);
-  const state = { tab: 'overview', reportFilter: 'OPEN', timers: [] };
+  const state = { tab: 'overview', reportFilter: 'OPEN', schoolFilter: 'PENDING', timers: [] };
 
   // ── Helpers ───────────────────────────────────────────────────────────
   function esc(v) {
@@ -87,6 +87,7 @@
     $('#app').classList.remove('hidden');
     showTab(state.tab);
     refreshReportCount();
+    refreshSchoolCount();
     state.timers.push(setInterval(refreshReportCount, 60000));
   }
 
@@ -102,7 +103,7 @@
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== `tab-${tab}`));
     clearInterval(liveTimer);
-    const render = { overview: renderOverview, reports: renderReports, users: renderUsers, online: renderOnline, server: renderServer }[tab];
+    const render = { overview: renderOverview, reports: renderReports, schools: renderSchools, users: renderUsers, online: renderOnline, server: renderServer }[tab];
     render();
     // Live tabs refresh themselves; the others reload when reopened.
     if (tab === 'online') liveTimer = setInterval(renderOnline, 20000);
@@ -115,6 +116,15 @@
       const el = $('#reports-count');
       el.textContent = open.length;
       el.classList.toggle('hidden', open.length === 0);
+    } catch { /* shown on the tab itself */ }
+  }
+
+  async function refreshSchoolCount() {
+    try {
+      const pending = await api('/admin/api/schools?status=PENDING');
+      const el = $('#schools-count');
+      el.textContent = pending.length;
+      el.classList.toggle('hidden', pending.length === 0);
     } catch { /* shown on the tab itself */ }
   }
 
@@ -319,6 +329,62 @@
         await api(`/admin/api/reports/${card.dataset.id}`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
         refreshReportCount();
         renderReports();
+      } catch { btn.disabled = false; }
+    };
+  }
+
+  // ── Dog schools ───────────────────────────────────────────────────────
+  // Anyone can register as a school; nothing shows in the app until approved here.
+  async function renderSchools() {
+    const root = $('#tab-schools');
+    const filters = ['PENDING', 'APPROVED', 'REJECTED'];
+    root.innerHTML = `
+      <div class="section-head"><h2>Dog schools</h2>
+        <div class="filters">${filters.map(f => `<button data-f="${f}" class="${f === state.schoolFilter ? 'active' : ''}">${f[0] + f.slice(1).toLowerCase()}</button>`).join('')}</div>
+        <span class="muted small">Check that it is a real dog school (website, address) before approving.</span></div>
+      <div id="school-list"><p class="muted">Loading…</p></div>`;
+    root.querySelector('.filters').addEventListener('click', e => {
+      const b = e.target.closest('button[data-f]');
+      if (b) { state.schoolFilter = b.dataset.f; renderSchools(); }
+    });
+    let list;
+    try { list = await api(`/admin/api/schools?status=${state.schoolFilter}`); } catch { return; }
+    const box = $('#school-list');
+    if (!list.length) { box.innerHTML = `<div class="empty">${state.schoolFilter === 'PENDING' ? 'No schools waiting. 🎉' : 'Nothing here.'}</div>`; return; }
+    box.innerHTML = list.map(({ school: s, ownerId, ownerName, ownerEmail, createdAt }) => `
+      <article class="report ${s.status === 'PENDING' ? 'is-open' : ''}" data-id="${s.id}">
+        <div class="head">
+          <span class="pill ${s.status === 'PENDING' ? 'open' : ''}">${esc(s.status)}</span>
+          <strong>${esc(s.name)}</strong>
+          <span class="muted small">by <a href="#" data-user="${ownerId}">${esc(ownerName)}</a> (${esc(ownerEmail)}) · ${when(createdAt)}</span>
+        </div>
+        ${s.logo ? `<div class="photos"><img src="${esc(s.logo)}" alt=""></div>` : ''}
+        <dl class="kv">
+          <dt>Address</dt><dd>${esc(s.address)}</dd>
+          <dt>Phone</dt><dd>${esc(s.phone || '—')}</dd>
+          <dt>Website</dt><dd>${s.website ? `<a href="${esc(s.website)}" target="_blank" rel="noopener noreferrer">${esc(s.website)}</a>` : '—'}</dd>
+          <dt>Opening hours</dt><dd>${esc(s.openingHours || '—')}</dd>
+          <dt>About</dt><dd>${esc(s.description || '—')}</dd>
+        </dl>
+        <textarea placeholder="Note to the school (shown to them when rejected)">${esc(s.reviewNote || '')}</textarea>
+        <div class="actions">
+          ${s.status !== 'APPROVED' ? '<button class="btn primary" data-act="APPROVED">Approve</button>' : ''}
+          ${s.status !== 'REJECTED' ? '<button class="btn danger" data-act="REJECTED">Reject</button>' : ''}
+        </div>
+      </article>`).join('');
+    box.onclick = async e => {
+      const userLink = e.target.closest('[data-user]');
+      if (userLink) { e.preventDefault(); return openUser(+userLink.dataset.user); }
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const card = btn.closest('.report');
+      btn.disabled = true;
+      try {
+        await api(`/admin/api/schools/${card.dataset.id}`, {
+          method: 'PATCH', body: JSON.stringify({ status: btn.dataset.act, note: card.querySelector('textarea').value }),
+        });
+        refreshSchoolCount();
+        renderSchools();
       } catch { btn.disabled = false; }
     };
   }

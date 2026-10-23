@@ -46,6 +46,17 @@ public class SittingRequest {
     private String note;
 
     /**
+     * A weekly series: the weekdays it repeats on ("TUESDAY,THURSDAY"), null for a
+     * single window. startsAt is then the first visit and endsAt the end of the last,
+     * so "over", the job board and the rating reminder all keep working unchanged.
+     */
+    @Column(length = 80)
+    private String repeatWeekdays;
+
+    /** How long each visit of a series lasts; null for a single window. */
+    private Integer occurrenceMinutes;
+
+    /**
      * Whether it is still taking offers.
      *
      * <p>Deliberately only two values, with the accepted sitter carried in its own

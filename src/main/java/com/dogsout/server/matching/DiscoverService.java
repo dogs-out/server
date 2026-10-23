@@ -89,6 +89,32 @@ public class DiscoverService {
                 .toList();
     }
 
+    /**
+     * How many people who joined since {@code since} would appear in this user's
+     * Discover deck: the same rules as the feed, without building the cards.
+     * For "3 new dog owners near you" — a number that has to be true.
+     */
+    @Transactional(readOnly = true)
+    public int countNewInDeck(User me, java.time.LocalDateTime since) {
+        if (Boolean.FALSE.equals(me.getHasDog()) || me.getLatitude() == null || me.getLongitude() == null) return 0;
+        java.util.Set<Long> excluded = new java.util.HashSet<>(matchRepository.findSwipedUserIdsByUser1Id(me.getId()));
+        excluded.addAll(matchRepository.findMatchedUserIdsByUser2Id(me.getId()));
+        excluded.addAll(blockRepository.findBlockedIdsByBlockerId(me.getId()));
+        excluded.addAll(blockRepository.findBlockerIdsByBlockedId(me.getId()));
+        double maxDist = me.getMaxDistanceKm() != null ? me.getMaxDistanceKm() : MAX_DISTANCE_KM;
+
+        return (int) userRepository.findByCreatedAtAfter(since).stream()
+                .filter(u -> !u.getId().equals(me.getId()))
+                .filter(u -> !excluded.contains(u.getId()))
+                .filter(u -> !Boolean.FALSE.equals(u.getHasDog()))
+                .filter(u -> u.getLatitude() != null && u.getLongitude() != null
+                        && calculateDistance(me.getLatitude(), me.getLongitude(), u.getLatitude(), u.getLongitude()) <= maxDist)
+                .filter(u -> passesAgeFilter(u, me.getMinAge(), me.getMaxAge()))
+                .filter(u -> passesDogAgeFilter(u, me.getMinDogAge(), me.getMaxDogAge()))
+                .filter(u -> dogRepository.countByOwner(u) > 0)
+                .count();
+    }
+
     // Both dogsitting pools are opt-in in both directions: you can't browse one side
     // until you've joined the other. Someone with neither toggle sees nothing, which
     // is the point — the lists are for people who've actually opted in.
@@ -196,7 +222,7 @@ public class DiscoverService {
                             dog.getCreatedAt(),
                             dog.getEnergyLevel(), dog.getSocialBehavior(),
                             dog.getLoves() != null ? Arrays.asList(dog.getLoves().split(TAG_SPLIT_REGEX)) : List.of(),
-                            dog.getOffLeash(), dog.getSex(), dog.getKidsComfort(),
+                            dog.getOffLeash(), dog.getSex(), dog.getNeutered(), dog.getKidsComfort(),
                             dog.getTags() != null ? Arrays.asList(dog.getTags().split(TAG_SPLIT_REGEX)) : List.of(),
                             dogPhotos
                     );

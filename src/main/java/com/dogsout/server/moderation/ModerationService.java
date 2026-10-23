@@ -259,6 +259,33 @@ public class ModerationService {
         }
     }
 
+    /**
+     * A marketplace listing, reported by someone who saw it. The listing is already
+     * hidden by the time this runs; the report is for deciding whether it comes back.
+     */
+    public void reportListing(User reporter, User seller, Long listingId, String title, String description,
+                              ReportRequest request) {
+        String body = """
+                A marketplace listing has been reported in Dogs Out. It is hidden until someone looks.
+
+                Reporter: %s (id %d, %s)
+                Seller: %s (id %d, %s)
+
+                Reason: %s
+                Message from reporter: %s
+
+                ── Listing %d ─────────────────────
+                Title: %s
+                Description: %s""".formatted(
+                reporter.getName(), reporter.getId(), reporter.getEmail(),
+                seller.getName(), seller.getId(), seller.getEmail(),
+                request.reason(),
+                request.message() == null || request.message().isBlank() ? "(none)" : request.message().trim(),
+                listingId, title, description == null ? "(empty)" : description);
+        saveReport("LISTING", reporter, seller, null, null, request, body);
+        notifyAdmin("Listing report: %s (id %d)".formatted(title, listingId), body);
+    }
+
     /** Keeps the report for the admin page; the email stays as the notification. */
     private void saveReport(String kind, User reporter, User reported, Long matchId, Long reviewId,
                             ReportRequest request, String details) {

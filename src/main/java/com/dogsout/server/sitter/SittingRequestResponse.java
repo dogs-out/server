@@ -14,6 +14,9 @@ import java.util.List;
  * @param awaitingReview  it is over, somebody sat, and the owner has not rated them yet
  * @param distanceKm  rounded, like everywhere else; -1 when either side has no location
  * @param detailsShared the owner has handed over the to-do list, number and address
+ * @param repeatWeekdays a weekly series' days, empty for a single window; startsAt is
+ *                       then the first visit and endsAt the end of the last
+ * @param occurrenceMinutes how long each visit of a series lasts
  */
 public record SittingRequestResponse(
         Long id,
@@ -39,5 +42,7 @@ public record SittingRequestResponse(
         String addressLabel,
         Double addressLatitude,
         Double addressLongitude,
-        boolean detailsShared
+        boolean detailsShared,
+        List<String> repeatWeekdays,
+        Integer occurrenceMinutes
 ) {}

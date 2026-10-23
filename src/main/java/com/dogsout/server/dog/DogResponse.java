@@ -21,6 +21,8 @@ public record DogResponse(
         String offLeash,
         /** "MALE", "FEMALE", or null if the owner has not said. */
         String sex,
+        /** Neutered or spayed; null if the owner has not said yet. */
+        Boolean neutered,
         Integer kidsComfort,
         List<String> tags,
         List<DogPhotoResponse> photos

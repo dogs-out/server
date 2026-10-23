@@ -59,7 +59,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                     activityTracker.touch(email, request.getHeader("X-Client-Platform"),
-                            request.getHeader("X-App-Version"), request.getHeader("User-Agent"));
+                            request.getHeader("X-App-Version"), request.getHeader("User-Agent"),
+                            request.getHeader("X-App-Language"));
 
                     // Deliberately after the revocation check: a token that a password
                     // change has already invalidated must never be renewed into a

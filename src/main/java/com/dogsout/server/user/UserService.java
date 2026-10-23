@@ -46,6 +46,8 @@ public class UserService {
     private final BlockRepository blockRepository;
     private final com.dogsout.server.playdate.PlaydateService playdateService;
     private final PhotoService photoService;
+    private final com.dogsout.server.market.MarketService marketService;
+    private final com.dogsout.server.school.SchoolService schoolService;
     private final com.dogsout.server.notification.PushNotificationService pushNotificationService;
     private final com.dogsout.server.sos.LostDogAlertRepository lostDogAlertRepository;
     private final com.dogsout.server.sitter.SittingRequestRepository sittingRequestRepository;
@@ -181,6 +183,12 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public void setDailyRemindersEnabled(String email, boolean enabled) {
+        User user = findUser(email);
+        user.setDailyRemindersEnabled(enabled);
+        userRepository.save(user);
+    }
+
     public void deleteAccount(String email) {
         deleteUser(findUser(email));
     }
@@ -202,6 +210,8 @@ public class UserService {
 
     private void deleteUser(User user) {
         playdateService.deleteAllForUser(user);
+        List<String> marketPhotos = marketService.deleteAllForUser(user);
+        marketPhotos.addAll(schoolService.deleteAllForUser(user));
         lostDogAlertRepository.deleteByOwner(user);
         deleteDogsittingFor(user);
         userActivityDayRepository.deleteByUserId(user.getId());
@@ -225,6 +235,7 @@ public class UserService {
         userPhotoRepository.deleteAll(userPhotos);
         if (user.getWalkStatusPhotoKey() != null) keys.add(user.getWalkStatusPhotoKey());
         userRepository.delete(user);
+        keys.addAll(marketPhotos);
         keys.forEach(photoService::delete);
     }
 
@@ -352,6 +363,7 @@ public class UserService {
                 user.getMinDogAge(),
                 user.getMaxDogAge(),
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
+                !Boolean.FALSE.equals(user.getDailyRemindersEnabled()),
                 user.getTermsAcceptedAt() != null,
                 user.getTermsAcceptedAt(),
                 WalkStatus.orDefault(user.activeWalkStatus()).name(),
@@ -417,7 +429,7 @@ public class UserService {
         return toResponse(user);
     }
 
-    private static void clearStatus(User user) {
+    static void clearStatus(User user) {
         user.setWalkStatus(null);
         user.setWalkStatusExpiresAt(null);
         user.setWalkStatusLatitude(null);
@@ -568,19 +580,25 @@ public class UserService {
                 // No filter at all: every match appears with whatever they are up
                 // to. A point is optional even for the ones who are out, so a row
                 // without one simply does not open a map.
-                .map(other -> new FriendStatus(
-                        other.getId(),
-                        other.getName(),
-                        photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
-                        dogsNamedBy(other),
-                        WalkStatus.orDefault(other.activeWalkStatus()).name(),
-                        other.getWalkStatusLatitude(),
-                        other.getWalkStatusLongitude(),
-                        other.getWalkStatusPlaceName(),
-                        photoService.url(other.getWalkStatusPhotoKey(), PhotoRendition.FEED),
-                        other.getWalkStatusExpiresAt(),
-                        distanceTo(me, other),
-                        companionsOf(other)))
+                .map(other -> {
+                    // An expired status is never cleared in the database, so its
+                    // place and photo are still stored. Only a live status may show
+                    // them — otherwise last night's walk keeps its picture and spot.
+                    boolean live = other.activeWalkStatus() != null;
+                    return new FriendStatus(
+                            other.getId(),
+                            other.getName(),
+                            photoService.url(other.getProfilePictureKey(), PhotoRendition.THUMB),
+                            dogsNamedBy(other),
+                            WalkStatus.orDefault(other.activeWalkStatus()).name(),
+                            live ? other.getWalkStatusLatitude() : null,
+                            live ? other.getWalkStatusLongitude() : null,
+                            live ? other.getWalkStatusPlaceName() : null,
+                            live ? photoService.url(other.getWalkStatusPhotoKey(), PhotoRendition.FEED) : null,
+                            live ? other.getWalkStatusExpiresAt() : null,
+                            live ? distanceTo(me, other) : -1,
+                            companionsOf(other));
+                })
                 // Whoever is out comes first — that is the part you can act on —
                 // then nearest first within each group, with the ones who shared no
                 // point after them rather than at the top, where a distance of -1

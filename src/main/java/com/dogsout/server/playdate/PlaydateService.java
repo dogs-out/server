@@ -119,7 +119,9 @@ public class PlaydateService {
         playdate.setStatus(PlaydateStatus.ACTIVE);
         Playdate saved = playdateRepository.save(playdate);
 
-        if (request.visibility() == PlaydateVisibility.INVITE_ONLY && request.inviteUserIds() != null) {
+        // Any visibility takes invites: a public playdate can still notify the host's
+        // friends directly while everyone nearby joins on their own.
+        if (request.inviteUserIds() != null) {
             inviteInternal(saved, me, request.inviteUserIds());
         }
         return toResponse(saved, me, true);
@@ -282,9 +284,6 @@ public class PlaydateService {
     public PlaydateResponse invite(String email, Long id, List<Long> userIds) {
         User me = findUser(email);
         Playdate playdate = findHostedPlaydate(id, me);
-        if (playdate.getVisibility() != PlaydateVisibility.INVITE_ONLY) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only invite-only playdates take invites");
-        }
         requireActiveAndUpcoming(playdate);
         inviteInternal(playdate, me, userIds);
         return toResponse(playdate, me, true);

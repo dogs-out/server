@@ -60,8 +60,7 @@ public class SitterService {
 
         SittingRequest saved = new SittingRequest();
         saved.setOwner(me);
-        saved.setStartsAt(request.startsAt());
-        saved.setEndsAt(request.endsAt());
+        applyWindow(saved, request);
         saved.setDogIds(joinIds(request.dogIds()));
         saved.setNote(trimmedOrNull(request.note()));
         saved.setStatus(SittingRequestStatus.OPEN);
@@ -140,8 +139,7 @@ public class SitterService {
         }
         validateWindow(request, me);
 
-        found.setStartsAt(request.startsAt());
-        found.setEndsAt(request.endsAt());
+        applyWindow(found, request);
         found.setDogIds(joinIds(request.dogIds()));
         found.setNote(trimmedOrNull(request.note()));
         return toResponse(sittingRequestRepository.save(found), me);
@@ -378,9 +376,67 @@ public class SitterService {
         return found;
     }
 
+    /** A holiday can be long; a month is the most a stranger is asked to look after a dog. */
+    static final java.time.Duration MAX_WINDOW = java.time.Duration.ofDays(30);
+    /** A weekly series runs for at most half a year; after that, post it again. */
+    static final int MAX_SERIES_DAYS = 183;
+    private static final java.time.ZoneId ZURICH = java.time.ZoneId.of("Europe/Zurich");
+
+    /**
+     * Sets the window. A weekly series is stored as its first visit's start and its
+     * last visit's end, with the weekdays and the length of one visit alongside.
+     */
+    private static void applyWindow(SittingRequest target, CreateSittingRequest request) {
+        target.setStartsAt(request.startsAt());
+        if (!isSeries(request)) {
+            target.setEndsAt(request.endsAt());
+            target.setRepeatWeekdays(null);
+            target.setOccurrenceMinutes(null);
+            return;
+        }
+        java.util.Set<java.time.DayOfWeek> days = weekdays(request.repeatWeekdays());
+        java.time.ZonedDateTime firstStart = request.startsAt().atZone(ZURICH);
+        java.time.Duration length = java.time.Duration.between(request.startsAt(), request.endsAt());
+        // The last day on or before repeatUntil that is one of the weekdays.
+        java.time.LocalDate last = request.repeatUntil();
+        while (!days.contains(last.getDayOfWeek())) last = last.minusDays(1);
+        java.time.ZonedDateTime lastStart = last.atTime(firstStart.toLocalTime()).atZone(ZURICH);
+        target.setEndsAt(lastStart.plus(length).toInstant());
+        target.setRepeatWeekdays(days.stream().sorted().map(Enum::name).collect(Collectors.joining(",")));
+        target.setOccurrenceMinutes((int) length.toMinutes());
+    }
+
+    private static boolean isSeries(CreateSittingRequest r) {
+        return r.repeatWeekdays() != null && !r.repeatWeekdays().isEmpty() && r.repeatUntil() != null;
+    }
+
+    private static java.util.Set<java.time.DayOfWeek> weekdays(List<String> names) {
+        try {
+            return names.stream().map(n -> java.time.DayOfWeek.valueOf(n.trim().toUpperCase()))
+                    .collect(Collectors.toCollection(() -> java.util.EnumSet.noneOf(java.time.DayOfWeek.class)));
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown weekday");
+        }
+    }
+
     private void validateWindow(CreateSittingRequest request, User me) {
         if (!request.endsAt().isAfter(request.startsAt())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The end has to come after the start");
+        }
+        if (isSeries(request)) {
+            if (java.time.Duration.between(request.startsAt(), request.endsAt()).compareTo(java.time.Duration.ofHours(24)) > 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One visit of a weekly series lasts at most a day");
+            }
+            java.time.ZonedDateTime first = request.startsAt().atZone(ZURICH);
+            if (!weekdays(request.repeatWeekdays()).contains(first.getDayOfWeek())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The first visit has to fall on one of the weekdays");
+            }
+            if (request.repeatUntil().isBefore(first.toLocalDate())
+                    || request.repeatUntil().isAfter(first.toLocalDate().plusDays(MAX_SERIES_DAYS))) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A weekly series runs for up to six months");
+            }
+        } else if (java.time.Duration.between(request.startsAt(), request.endsAt()).compareTo(MAX_WINDOW) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A sitting can last up to 30 days");
         }
         if (request.endsAt().isBefore(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That window is already over");
@@ -447,7 +503,9 @@ public class SitterService {
                 forInvolved ? request.getAddressLabel() : null,
                 forInvolved ? request.getAddressLatitude() : null,
                 forInvolved ? request.getAddressLongitude() : null,
-                request.getDetailsSharedAt() != null);
+                request.getDetailsSharedAt() != null,
+                request.getRepeatWeekdays() == null ? List.of() : List.of(request.getRepeatWeekdays().split(",")),
+                request.getOccurrenceMinutes());
     }
 
     private User findUser(String email) {

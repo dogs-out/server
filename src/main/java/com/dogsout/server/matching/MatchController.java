@@ -3,6 +3,7 @@ package com.dogsout.server.matching;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,8 +21,9 @@ public class MatchController {
     private final MatchService matchService;
 
     @PostMapping("/swipe")
-    public ResponseEntity<SwipeResponse> swipe(Authentication auth, @RequestBody SwipeRequest request) {
-        return ResponseEntity.ok(matchService.swipe(auth.getName(), request));
+    public ResponseEntity<SwipeResponse> swipe(Authentication auth, @RequestBody SwipeRequest request,
+                                               @RequestHeader(value = "X-App-Version", required = false) String appVersion) {
+        return ResponseEntity.ok(matchService.swipe(auth.getName(), request, appVersion));
     }
 
     @GetMapping

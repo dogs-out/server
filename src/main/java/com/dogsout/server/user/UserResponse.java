@@ -35,6 +35,8 @@ public record UserResponse(
         Integer minDogAge,
         Integer maxDogAge,
         Boolean notificationsEnabled,
+        /** The once-a-day nudge; never null, on unless turned off. */
+        boolean dailyRemindersEnabled,
         boolean termsAccepted,
         /** When the terms were last accepted; the app asks again when its terms are newer. */
         java.time.Instant termsAcceptedAt,

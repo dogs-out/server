@@ -142,7 +142,9 @@ public class SitterReviewService {
                         r.getSitter().getId(), r.getSitter().getName(),
                         photoService.url(r.getSitter().getProfilePictureKey(), PhotoRendition.THUMB),
                         true, false, true, -1,
-                        null, null, null, null, null, r.getDetailsSharedAt() != null))
+                        null, null, null, null, null, r.getDetailsSharedAt() != null,
+                        r.getRepeatWeekdays() == null ? List.of() : List.of(r.getRepeatWeekdays().split(",")),
+                        r.getOccurrenceMinutes()))
                 .toList();
     }
 

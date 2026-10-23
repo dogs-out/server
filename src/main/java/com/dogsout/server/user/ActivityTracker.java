@@ -41,6 +41,11 @@ public class ActivityTracker {
     private final Map<String, Seen> lastWrite = new ConcurrentHashMap<>();
 
     public void touch(String email, String platformHeader, String versionHeader, String userAgent) {
+        touch(email, platformHeader, versionHeader, userAgent, null);
+    }
+
+    public void touch(String email, String platformHeader, String versionHeader, String userAgent,
+                      String languageHeader) {
         Instant now = Instant.now();
         LocalDate today = LocalDate.now(ZURICH);
         Seen prev = lastWrite.get(email);
@@ -50,7 +55,7 @@ public class ActivityTracker {
         String platform = platform(platformHeader, userAgent);
         String version = version(versionHeader, userAgent);
         try {
-            userRepository.recordActivity(email, now, platform, version);
+            userRepository.recordActivity(email, now, platform, version, language(languageHeader));
             Long userId = userRepository.findIdByEmail(email);
             if (userId != null && !dayRepository.existsByUserIdAndDay(userId, today)) {
                 dayRepository.save(new UserActivityDay(userId, today, platform));
@@ -85,5 +90,13 @@ public class ActivityTracker {
             if (m.find()) return "build " + m.group(1);
         }
         return null;
+    }
+
+    /** Only the languages the app ships; anything else leaves the stored one alone. */
+    static String language(String header) {
+        if (header == null) return null;
+        String lang = header.trim().toLowerCase();
+        if (lang.length() > 2) lang = lang.substring(0, 2);
+        return java.util.Set.of("de", "en", "fr", "it").contains(lang) ? lang : null;
     }
 }

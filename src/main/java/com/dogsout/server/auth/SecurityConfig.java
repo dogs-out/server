@@ -35,6 +35,10 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**", "/uploads/**", "/error", "/ws", "/legal/**").permitAll()
                         // AdMob verifies the app by fetching this from the developer site in the store listing
                         .requestMatchers("/app-ads.txt", "/robots.txt").permitAll()
+                        // Called by Google, not the app; it proves itself with a signature instead.
+                        .requestMatchers("/bones/admob-ssv").permitAll()
+                        // Called by RevenueCat with its own shared secret.
+                        .requestMatchers("/revenuecat/webhook").permitAll()
                         // The public website: the overview page and its stylesheet
                         .requestMatchers("/", "/index.html", "/site.css").permitAll()
                         // The admin page itself is static and logs in through /auth; its data is not.

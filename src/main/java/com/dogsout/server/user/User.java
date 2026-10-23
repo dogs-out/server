@@ -215,12 +215,39 @@ public class User {
     private String expoPushToken;
     private Boolean notificationsEnabled = true;
 
+    /** The daily nudge (bones back, new people nearby); null means on. */
+    private Boolean dailyRemindersEnabled;
+
+    /** The Swiss day the last daily nudge went out, so it is never two in a day. */
+    private java.time.LocalDate lastDailyNudgeDay;
+
+    /** The app's language ("de", "en", "fr", "it"), so pushes can be written in it. */
+    @jakarta.persistence.Column(length = 5)
+    private String appLanguage;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    // ─── Bones: the daily swipe allowance (see BoneService) ──────────────────
+
+    /** The Swiss calendar day bonesUsed counts for; an older day means none used yet. */
+    private java.time.LocalDate bonesDay;
+
+    /** Swipes spent from the daily allowance on bonesDay. */
+    private Integer bonesUsed;
+
+    /** Extra bones from ads or purchases; kept until spent, after the daily ones. */
+    private Integer bonusBones;
+
+    /** Ad rewards collected on bonesDay, capped so ads cannot replace the limit. */
+    private Integer adBonesToday;
+
+    /** DogsOut Premium runs until this moment; null or past means not premium. */
+    private Instant premiumUntil;
 
     /**
      * The status as it should be read anywhere: an expired one is no status.

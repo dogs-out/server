@@ -23,7 +23,11 @@ class DogSexTest {
     @MockitoBean PushNotificationService push;
 
     static DogRequest request(String sex) {
-        return new DogRequest("Luna", null, null, null, null, null, null, null, sex, null, null);
+        return request(sex, null);
+    }
+
+    static DogRequest request(String sex, Boolean neutered) {
+        return new DogRequest("Luna", null, null, null, null, null, null, null, sex, neutered, null, null);
     }
 
     @Test
@@ -40,6 +44,25 @@ class DogSexTest {
 
         // Leaving it out on an update keeps what was there.
         assertThat(dogs.updateDog(u.getEmail(), created.id(), request(null)).sex()).isEqualTo("FEMALE");
+    }
+
+    @Test
+    void neuteredIsSavedAndKeptWhenLeftOut() {
+        User u = new User();
+        u.setEmail("neutered@test.ch");
+        u.setName("Owner");
+        u.setPassword("x");
+        u.setDateOfBirth(LocalDate.of(1990, 1, 1));
+        users.save(u);
+
+        // Dogs from before the question have no answer, not a "no".
+        DogResponse old = dogs.createDog(u.getEmail(), request("MALE"));
+        assertThat(old.neutered()).isNull();
+
+        assertThat(dogs.updateDog(u.getEmail(), old.id(), request(null, true)).neutered()).isTrue();
+        // An older app version that never sends it must not wipe the answer.
+        assertThat(dogs.updateDog(u.getEmail(), old.id(), request(null)).neutered()).isTrue();
+        assertThat(dogs.updateDog(u.getEmail(), old.id(), request(null, false)).neutered()).isFalse();
     }
 
     @Test

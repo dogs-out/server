@@ -1,5 +1,8 @@
 package com.dogsout.server.matching;
 
+import com.dogsout.server.bones.AppVersion;
+import com.dogsout.server.bones.BoneService;
+import com.dogsout.server.bones.BoneStatus;
 import com.dogsout.server.chat.Message;
 import com.dogsout.server.chat.MessageRepository;
 import com.dogsout.server.moderation.BlockRepository;
@@ -32,8 +35,19 @@ public class MatchService {
     private final ChatSocketHandler chatSocketHandler;
     private final PushNotificationService pushNotificationService;
     private final PhotoService photoService;
+    private final BoneService boneService;
 
+    /** For callers that are not the app (tests, tools): charged like a current app. */
     public SwipeResponse swipe(String email, SwipeRequest request) {
+        return swipe(email, request, "1.4.0");
+    }
+
+    /**
+     * @param appVersion the X-App-Version header. Apps before 1.4 know nothing about
+     *                   bones, so they swipe without spending any rather than hitting
+     *                   an error they cannot explain.
+     */
+    public SwipeResponse swipe(String email, SwipeRequest request, String appVersion) {
         User me = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         User target = userRepository.findById(request.targetUserId())
@@ -50,8 +64,12 @@ public class MatchService {
         Optional<Match> mine = matchRepository.findFirstByUser1AndUser2OrderByIdAsc(me, target);
         if (mine.isPresent()) {
             Match existing = mine.get();
-            return new SwipeResponse(existing.getStatus() == MatchStatus.MATCHED, existing.getId());
+            return new SwipeResponse(existing.getStatus() == MatchStatus.MATCHED, existing.getId(), null);
         }
+
+        // Charged before anything is written: an empty bowl means the swipe never happened.
+        // Only a new swipe costs a bone — a repeat (a retried request) changes nothing.
+        BoneStatus bones = AppVersion.isOlderThan(appVersion, 1, 4) ? null : boneService.spend(me);
 
         boolean isLike = "LIKE".equalsIgnoreCase(request.action());
 
@@ -60,7 +78,7 @@ public class MatchService {
             Optional<Match> theirMatched = matchRepository
                     .findFirstByUser1AndUser2AndStatusOrderByIdAsc(target, me, MatchStatus.MATCHED);
             if (theirMatched.isPresent()) {
-                return new SwipeResponse(true, theirMatched.get().getId());
+                return new SwipeResponse(true, theirMatched.get().getId(), bones);
             }
             // They liked us first — promote their pending like to a match
             Optional<Match> theirPending = matchRepository
@@ -78,7 +96,7 @@ public class MatchService {
                             "You and " + me.getName() + " gave each other a treat. Say hi!",
                             java.util.Map.of("type", "NEW_MATCH", "matchId", mutual.getId()));
                 }
-                return new SwipeResponse(true, mutual.getId());
+                return new SwipeResponse(true, mutual.getId(), bones);
             }
         }
 
@@ -88,7 +106,7 @@ public class MatchService {
         swipe.setStatus(isLike ? MatchStatus.PENDING : MatchStatus.REJECTED);
         Match saved = matchRepository.save(swipe);
 
-        return new SwipeResponse(false, saved.getId());
+        return new SwipeResponse(false, saved.getId(), bones);
     }
 
     @Transactional(readOnly = true)

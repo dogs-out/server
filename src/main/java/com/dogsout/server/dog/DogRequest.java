@@ -21,6 +21,8 @@ public record DogRequest(
         List<String> loves,
         String offLeash,
         @Pattern(regexp = "MALE|FEMALE", message = "Sex must be MALE or FEMALE") String sex,
+        // Optional here so older app versions keep saving; the app itself requires it.
+        Boolean neutered,
         Integer kidsComfort,
         List<String> tags
 ) {}
