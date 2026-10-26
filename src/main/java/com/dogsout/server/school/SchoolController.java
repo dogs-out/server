@@ -102,14 +102,23 @@ public class SchoolController {
         return schools.deleteEventPhoto(auth.getName(), id, photoId);
     }
 
+    /** Body {"date": "2026-11-04"} for one class of a per-date event; empty otherwise. */
     @PostMapping("/school-events/{id}/join")
-    public EventResponse join(Authentication auth, @PathVariable Long id) {
-        return schools.join(auth.getName(), id);
+    public EventResponse join(Authentication auth, @PathVariable Long id,
+                              @RequestBody(required = false) SchoolDtos.JoinRequest request) {
+        return schools.join(auth.getName(), id, request == null ? null : request.date());
     }
 
     @DeleteMapping("/school-events/{id}/join")
-    public EventResponse leave(Authentication auth, @PathVariable Long id) {
-        return schools.leave(auth.getName(), id);
+    public EventResponse leave(Authentication auth, @PathVariable Long id,
+                               @RequestParam(required = false) java.time.LocalDate date) {
+        return schools.leave(auth.getName(), id, date);
+    }
+
+    @PostMapping("/school-events/{id}/cancel-date")
+    public EventResponse cancelDate(Authentication auth, @PathVariable Long id,
+                                    @RequestBody SchoolDtos.JoinRequest request) {
+        return schools.cancelDate(auth.getName(), id, request.date());
     }
 
     @GetMapping("/school-events/{id}/participants")

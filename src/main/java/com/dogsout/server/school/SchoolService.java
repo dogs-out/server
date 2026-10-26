@@ -191,6 +191,14 @@ public class SchoolService {
         User me = findUser(email);
         SchoolEvent event = ownedEvent(id, me);
         validate(request);
+        // Switching between per-class and whole-course sign-up would leave the
+        // existing sign-ups meaning something else.
+        String newMode = request.repeatWeekdays() == null || request.repeatWeekdays().isEmpty() ? null
+                : (COURSE.equals(request.signupMode()) ? COURSE : DATE);
+        if (!java.util.Objects.equals(newMode, event.getSignupMode()) && participants.countByEvent(event) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "People have already signed up, so the kind of sign-up can no longer change");
+        }
         apply(event, request);
         events.save(event);
         tellParticipants(event, "Updated: " + event.getTitle(), "Check the new details.");
@@ -232,37 +240,100 @@ public class SchoolService {
         return toEvent(event, me);
     }
 
-    public EventResponse join(String email, Long id) {
+    /**
+     * Signs up: for one class when the school takes sign-ups per date, otherwise for
+     * the event (a one-off, or a whole course).
+     */
+    public EventResponse join(String email, Long id, java.time.LocalDate date) {
         User me = findUser(email);
         SchoolEvent event = visibleEvent(id, me);
-        // A course takes sign-ups until its last class; a one-off until it starts.
-        boolean open = event.getRepeatWeekdays() != null
-                ? event.getEndsAt().isAfter(Instant.now())
-                : event.getStartsAt().isAfter(Instant.now());
-        if (event.isCancelled() || !open) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This event is not taking sign-ups");
-        }
         if (event.getSchool().getOwner().getId().equals(me.getId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This is your own event");
         }
-        if (participants.findByEventAndUser(event, me).isPresent()) return toEvent(event, me);
+        if (event.isCancelled()) throw new ResponseStatusException(HttpStatus.CONFLICT, "This event was cancelled");
+
+        if (byDate(event)) {
+            if (date == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pick a date");
+            boolean upcoming = upcomingClasses(event, 400).stream().anyMatch(st -> dayOf(st).equals(date));
+            if (!upcoming) throw new ResponseStatusException(HttpStatus.CONFLICT, "That class is not taking sign-ups");
+            if (participants.findFirstByEventAndUserAndOccurrenceDate(event, me, date).isPresent()) return toEvent(event, me);
+            if (event.getMaxParticipants() != null
+                    && participants.countByEventAndOccurrenceDate(event, date) >= event.getMaxParticipants()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "This class is full");
+            }
+            save(event, me, date);
+            pushNewSignup(event, me, date);
+            return toEvent(event, me);
+        }
+
+        // One-off until it starts; a whole course until its last class.
+        boolean open = event.getRepeatWeekdays() != null
+                ? !upcomingClasses(event, 1).isEmpty()
+                : event.getStartsAt().isAfter(Instant.now());
+        if (!open) throw new ResponseStatusException(HttpStatus.CONFLICT, "This event is not taking sign-ups");
+        if (participants.findFirstByEventAndUserAndOccurrenceDateIsNull(event, me).isPresent()) return toEvent(event, me);
         if (event.getMaxParticipants() != null && participants.countByEvent(event) >= event.getMaxParticipants()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This event is full");
         }
-        SchoolEventParticipant p = new SchoolEventParticipant();
-        p.setEvent(event);
-        p.setUser(me);
-        participants.save(p);
-        pushNotificationService.send(event.getSchool().getOwner(), "New sign-up: " + event.getTitle(),
-                me.getName() + " signed up.", Map.of("type", "SCHOOL_EVENT_JOINED", "eventId", event.getId()));
+        save(event, me, null);
+        pushNewSignup(event, me, null);
+        return toEvent(event, me);
+    }
+
+    public EventResponse join(String email, Long id) {
+        return join(email, id, null);
+    }
+
+    public EventResponse leave(String email, Long id, java.time.LocalDate date) {
+        User me = findUser(email);
+        SchoolEvent event = visibleEvent(id, me);
+        (byDate(event) && date != null
+                ? participants.findFirstByEventAndUserAndOccurrenceDate(event, me, date)
+                : participants.findFirstByEventAndUserAndOccurrenceDateIsNull(event, me))
+                .ifPresent(participants::delete);
         return toEvent(event, me);
     }
 
     public EventResponse leave(String email, Long id) {
+        return leave(email, id, null);
+    }
+
+    /** The school calling off one class of a weekly event; those signed up for it are told. */
+    public EventResponse cancelDate(String email, Long id, java.time.LocalDate date) {
         User me = findUser(email);
-        SchoolEvent event = visibleEvent(id, me);
-        participants.findByEventAndUser(event, me).ifPresent(participants::delete);
+        SchoolEvent event = ownedEvent(id, me);
+        if (event.getRepeatWeekdays() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only a weekly event has single classes");
+        }
+        java.util.Set<java.time.LocalDate> off = new java.util.TreeSet<>(cancelledDates(event));
+        off.add(date);
+        event.setCancelledDates(off.stream().map(java.time.LocalDate::toString).collect(java.util.stream.Collectors.joining(",")));
+        events.save(event);
+        String day = date.format(java.time.format.DateTimeFormatter.ofPattern("d.M."));
+        List<SchoolEventParticipant> affected = byDate(event)
+                ? participants.findByEventAndOccurrenceDate(event, date)
+                : participants.findByEventOrderByJoinedAtAsc(event);
+        for (SchoolEventParticipant p : affected) {
+            pushNotificationService.send(p.getUser(), "Cancelled on " + day + ": " + event.getTitle(),
+                    event.getSchool().getName() + " has called off this class.",
+                    Map.of("type", "SCHOOL_EVENT_UPDATED", "eventId", event.getId()));
+        }
+        if (byDate(event)) participants.deleteAll(affected);
         return toEvent(event, me);
+    }
+
+    private void save(SchoolEvent event, User me, java.time.LocalDate date) {
+        SchoolEventParticipant p = new SchoolEventParticipant();
+        p.setEvent(event);
+        p.setUser(me);
+        p.setOccurrenceDate(date);
+        participants.save(p);
+    }
+
+    private void pushNewSignup(SchoolEvent event, User me, java.time.LocalDate date) {
+        String what = date == null ? "" : " (" + date.format(java.time.format.DateTimeFormatter.ofPattern("d.M.")) + ")";
+        pushNotificationService.send(event.getSchool().getOwner(), "New sign-up: " + event.getTitle() + what,
+                me.getName() + " signed up.", Map.of("type", "SCHOOL_EVENT_JOINED", "eventId", event.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -270,8 +341,11 @@ public class SchoolService {
         User me = findUser(email);
         SchoolEvent event = ownedEvent(id, me);
         return participants.findByEventOrderByJoinedAtAsc(event).stream()
+                .sorted(Comparator.comparing((SchoolEventParticipant p) -> p.getOccurrenceDate(),
+                        Comparator.nullsFirst(Comparator.naturalOrder())).thenComparing(SchoolEventParticipant::getJoinedAt))
                 .map(p -> new ParticipantResponse(p.getUser().getId(), p.getUser().getName(),
-                        photoService.url(p.getUser().getProfilePictureKey(), PhotoRendition.THUMB), p.getJoinedAt()))
+                        photoService.url(p.getUser().getProfilePictureKey(), PhotoRendition.THUMB), p.getJoinedAt(),
+                        p.getOccurrenceDate()))
                 .toList();
     }
 
@@ -337,6 +411,31 @@ public class SchoolService {
 
     /** A course runs for up to a year; after that, post it again. */
     static final int MAX_COURSE_DAYS = 366;
+    static final String DATE = "DATE";
+    static final String COURSE = "COURSE";
+    /** How many upcoming classes an event shows to sign up for. */
+    static final int SHOWN_CLASSES = 8;
+
+    static boolean byDate(SchoolEvent e) {
+        return e.getRepeatWeekdays() != null && DATE.equals(e.getSignupMode());
+    }
+
+    private static java.util.Set<java.time.LocalDate> cancelledDates(SchoolEvent e) {
+        if (e.getCancelledDates() == null || e.getCancelledDates().isBlank()) return java.util.Set.of();
+        return java.util.Arrays.stream(e.getCancelledDates().split(","))
+                .map(java.time.LocalDate::parse).collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** The classes still to come, called-off ones left out; empty for a one-off. */
+    private static List<Instant> upcomingClasses(SchoolEvent e, int limit) {
+        if (e.getRepeatWeekdays() == null || e.getOccurrenceMinutes() == null) return List.of();
+        return com.dogsout.server.WeeklySeries.upcoming(e.getStartsAt(), e.getEndsAt(), e.getRepeatWeekdays(),
+                e.getOccurrenceMinutes(), Instant.now(), cancelledDates(e), limit);
+    }
+
+    private static java.time.LocalDate dayOf(Instant start) {
+        return start.atZone(com.dogsout.server.WeeklySeries.ZONE).toLocalDate();
+    }
 
     private static boolean isCourse(EventRequest r) {
         return r.repeatWeekdays() != null && !r.repeatWeekdays().isEmpty() && r.repeatUntil() != null;
@@ -351,10 +450,12 @@ public class SchoolService {
             e.setEndsAt(com.dogsout.server.WeeklySeries.lastEnd(r.startsAt(), r.endsAt(), days, r.repeatUntil()));
             e.setRepeatWeekdays(com.dogsout.server.WeeklySeries.encode(days));
             e.setOccurrenceMinutes((int) java.time.Duration.between(r.startsAt(), r.endsAt()).toMinutes());
+            e.setSignupMode(COURSE.equals(r.signupMode()) ? COURSE : DATE);
         } else {
             e.setEndsAt(r.endsAt());
             e.setRepeatWeekdays(null);
             e.setOccurrenceMinutes(null);
+            e.setSignupMode(null);
         }
         e.setPlaceName(blankToNull(r.placeName()));
         e.setAddress(blankToNull(r.address()));
@@ -434,7 +535,7 @@ public class SchoolService {
     }
 
     private boolean joined(SchoolEvent e, User me) {
-        return participants.findByEventAndUser(e, me).isPresent();
+        return !participants.findByEventAndUser(e, me).isEmpty();
     }
 
     private boolean withinReach(User me, Double lat, Double lng) {
@@ -497,8 +598,25 @@ public class SchoolService {
                 e.isCancelled(), distance(me, lat(e), lng(e)), ps,
                 e.getRepeatWeekdays() == null ? List.of() : List.of(e.getRepeatWeekdays().split(",")),
                 e.getOccurrenceMinutes(),
-                com.dogsout.server.WeeklySeries.nextStart(e.getStartsAt(), e.getEndsAt(), e.getRepeatWeekdays(),
-                        e.getOccurrenceMinutes(), Instant.now()));
+                e.getRepeatWeekdays() == null
+                        ? com.dogsout.server.WeeklySeries.nextStart(e.getStartsAt(), e.getEndsAt(), null, null, Instant.now())
+                        : upcomingClasses(e, 1).stream().findFirst().orElse(null),
+                e.getSignupMode(),
+                occurrencesFor(e, me),
+                e.getRepeatWeekdays() == null ? 0 : upcomingClasses(e, 400).size());
+    }
+
+    private List<SchoolDtos.OccurrenceResponse> occurrencesFor(SchoolEvent e, User me) {
+        boolean perDate = byDate(e);
+        java.util.Set<java.time.LocalDate> mine = participants.findByEventAndUser(e, me).stream()
+                .map(SchoolEventParticipant::getOccurrenceDate).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        return upcomingClasses(e, SHOWN_CLASSES).stream().map(start -> {
+            java.time.LocalDate day = dayOf(start);
+            int count = perDate ? (int) participants.countByEventAndOccurrenceDate(e, day) : 0;
+            boolean full = perDate && e.getMaxParticipants() != null && count >= e.getMaxParticipants();
+            return new SchoolDtos.OccurrenceResponse(day, start, count, mine.contains(day), full);
+        }).toList();
     }
 
     private String describe(DogSchool s) {

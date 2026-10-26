@@ -49,6 +49,18 @@ public class SchoolEvent {
     /** How long one class of a course lasts; null for a one-off. */
     private Integer occurrenceMinutes;
 
+    /**
+     * How people sign up for a weekly event: "DATE" — each picks the classes they
+     * want, with places per class — or "COURSE": once, for all classes, because
+     * they build on each other. Null for a one-off (there is only one date).
+     */
+    @Column(length = 8)
+    private String signupMode;
+
+    /** Single classes the school called off, "2026-12-25,2027-01-01". */
+    @Column(length = 2000)
+    private String cancelledDates;
+
     @Column(length = 200)
     private String placeName;
 

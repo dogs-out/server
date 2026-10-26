@@ -71,6 +71,28 @@ public final class WeeklySeries {
     }
 
     /**
+     * Up to {@code limit} occurrence starts that have not ended by {@code now},
+     * leaving out the days in {@code skip} (classes called off).
+     */
+    public static List<Instant> upcoming(Instant startsAt, Instant endsAt, String weekdays, int minutes,
+                                         Instant now, Set<LocalDate> skip, int limit) {
+        Set<DayOfWeek> days = weekdays(List.of(weekdays.split(",")));
+        ZonedDateTime first = startsAt.atZone(ZONE);
+        LocalDate day = first.toLocalDate();
+        LocalDate today = now.atZone(ZONE).toLocalDate();
+        if (day.isBefore(today)) day = today.minusDays(1);
+        List<Instant> out = new java.util.ArrayList<>();
+        for (int i = 0; i < 800 && out.size() < limit; i++, day = day.plusDays(1)) {
+            if (!days.contains(day.getDayOfWeek()) || skip.contains(day)) continue;
+            ZonedDateTime start = day.atTime(first.toLocalTime()).atZone(ZONE);
+            if (start.toInstant().isBefore(startsAt)) continue;
+            if (endsAt != null && start.toInstant().isAfter(endsAt)) break;
+            if (start.plusMinutes(minutes).toInstant().isAfter(now)) out.add(start.toInstant());
+        }
+        return out;
+    }
+
+    /**
      * The start of the next occurrence that has not ended by {@code now}, or null
      * once the series is over. For a single event this is just its start.
      */

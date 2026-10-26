@@ -10,8 +10,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 
 @Entity
-@Table(name = "school_event_participants",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"event_id", "user_id"}))
+// No unique constraint: with sign-up per date a person has one row per date.
+// Duplicates are prevented in SchoolService.
+@Table(name = "school_event_participants")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,6 +29,9 @@ public class SchoolEventParticipant {
     @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
     private User user;
+
+    /** The class this sign-up is for; null for a one-off or a whole course. */
+    private java.time.LocalDate occurrenceDate;
 
     @CreationTimestamp
     @Column(updatable = false)

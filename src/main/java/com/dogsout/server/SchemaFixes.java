@@ -30,6 +30,24 @@ public class SchemaFixes implements ApplicationRunner {
 
     private final JdbcTemplate jdbc;
 
+    /**
+     * A unique constraint that no longer fits. Event sign-ups were one per person and
+     * event; with sign-up per date, one person has a row for each date they picked.
+     */
+    private void dropUnique(String table, String columns) {
+        List<String> names = jdbc.queryForList("""
+                select tc.constraint_name
+                  from information_schema.table_constraints tc
+                  join information_schema.key_column_usage k on k.constraint_name = tc.constraint_name
+                 where tc.table_schema = 'public' and tc.table_name = ? and tc.constraint_type = 'UNIQUE'
+                 group by tc.constraint_name
+                having string_agg(k.column_name, ',' order by k.ordinal_position) = ?""", String.class, table, columns);
+        for (String name : names) {
+            jdbc.execute("alter table " + table + " drop constraint " + name);
+            log.info("Dropped unique {}({}) on {}", name, columns, table);
+        }
+    }
+
     @Override
     public void run(ApplicationArguments args) {
         try {
@@ -45,6 +63,7 @@ public class SchemaFixes implements ApplicationRunner {
                     log.info("Widened {}.{} from varchar({}) to text", tc[0], tc[1], limit.get(0));
                 }
             }
+            dropUnique("school_event_participants", "event_id,user_id");
         } catch (RuntimeException e) {
             // A failed fix must not keep the server from starting; the old limit stays.
             log.warn("Schema fix skipped: {}", e.getMessage());

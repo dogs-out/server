@@ -52,7 +52,7 @@ class SchoolFlowTest {
     EventRequest event(Integer places) {
         Instant start = Instant.now().plus(Duration.ofDays(3));
         return new EventRequest("Welpenkurs", null, start, start.plus(Duration.ofHours(1)),
-                null, null, null, null, 4500, places, null, null);
+                null, null, null, null, 4500, places, null, null, null);
     }
 
     @Test
@@ -142,7 +142,7 @@ class SchoolFlowTest {
                 .atTime(13, 0).atZone(zone);
         var course = schools.createEvent(owner.getEmail(), new EventRequest("Junghundekurs", null,
                 firstTue.toInstant(), firstTue.plusHours(1).toInstant(), null, null, null, null, 25000, 8,
-                java.util.List.of("TUESDAY", "FRIDAY"), firstTue.toLocalDate().plusWeeks(6).plusDays(3)));
+                java.util.List.of("TUESDAY", "FRIDAY"), firstTue.toLocalDate().plusWeeks(6).plusDays(3), "COURSE"));
 
         assertThat(course.repeatWeekdays()).containsExactly("TUESDAY", "FRIDAY");
         assertThat(course.occurrenceMinutes()).isEqualTo(60);
@@ -151,5 +151,80 @@ class SchoolFlowTest {
         assertThat(course.endsAt().atZone(zone).getDayOfWeek()).isEqualTo(java.time.DayOfWeek.FRIDAY);
         assertThat(schools.upcomingNearby(lea.getEmail())).hasSize(1);
         assertThat(schools.join(lea.getEmail(), course.id()).joined()).isTrue();
+    }
+
+    private SchoolDtos.EventResponse weekly(User owner, String mode, Integer places) {
+        var mine = schools.register(owner.getEmail(), school());
+        schools.review(mine.id(), "APPROVED", null);
+        var zone = com.dogsout.server.WeeklySeries.ZONE;
+        var tue = java.time.LocalDate.now(zone).with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.TUESDAY))
+                .atTime(13, 0).atZone(zone);
+        return schools.createEvent(owner.getEmail(), new EventRequest("Social walk", null, tue.toInstant(),
+                tue.plusHours(1).toInstant(), null, null, null, null, null, places,
+                java.util.List.of("TUESDAY", "FRIDAY"), tue.toLocalDate().plusWeeks(4), mode));
+    }
+
+    @Test
+    void perDateSignUpHasPlacesPerClass() {
+        User owner = user("Schule"), lea = user("Lea"), moritz = user("Moritz");
+        var ev = weekly(owner, "DATE", 1);
+        assertThat(ev.signupMode()).isEqualTo("DATE");
+        assertThat(ev.occurrences()).hasSize(8);
+        var first = ev.occurrences().get(0).date();
+        var second = ev.occurrences().get(1).date();
+
+        // A date is required.
+        assertThatThrownBy(() -> schools.join(lea.getEmail(), ev.id(), null)).isInstanceOf(ResponseStatusException.class);
+        var after = schools.join(lea.getEmail(), ev.id(), first);
+        assertThat(after.occurrences().get(0).joined()).isTrue();
+        assertThat(after.occurrences().get(0).full()).isTrue();
+        // The first class is full, the second is not.
+        assertThatThrownBy(() -> schools.join(moritz.getEmail(), ev.id(), first)).hasMessageContaining("full");
+        assertThat(schools.join(moritz.getEmail(), ev.id(), second).occurrences().get(1).joined()).isTrue();
+        // The second class is now full too: one place per class, not per course.
+        assertThatThrownBy(() -> schools.join(lea.getEmail(), ev.id(), second)).hasMessageContaining("full");
+        assertThat(schools.participantsOf(owner.getEmail(), ev.id())).extracting(SchoolDtos.ParticipantResponse::occurrenceDate)
+                .containsExactly(first, second);
+        // A date that is not a class is refused.
+        assertThatThrownBy(() -> schools.join(lea.getEmail(), ev.id(), first.plusDays(1))).isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void onePersonCanPickSeveralClasses() {
+        User owner = user("Schule"), lea = user("Lea");
+        var ev = weekly(owner, "DATE", null);
+        schools.join(lea.getEmail(), ev.id(), ev.occurrences().get(0).date());
+        var after = schools.join(lea.getEmail(), ev.id(), ev.occurrences().get(2).date());
+        assertThat(after.occurrences()).extracting(SchoolDtos.OccurrenceResponse::joined)
+                .startsWith(true, false, true);
+        // Leaving one class keeps the other.
+        var left = schools.leave(lea.getEmail(), ev.id(), ev.occurrences().get(0).date());
+        assertThat(left.occurrences().get(0).joined()).isFalse();
+        assertThat(left.joined()).isTrue();
+    }
+
+    @Test
+    void cancellingOneClassDropsItAndItsSignUps() {
+        User owner = user("Schule"), lea = user("Lea");
+        var ev = weekly(owner, "DATE", null);
+        var first = ev.occurrences().get(0).date();
+        schools.join(lea.getEmail(), ev.id(), first);
+        var after = schools.cancelDate(owner.getEmail(), ev.id(), first);
+        assertThat(after.occurrences()).extracting(SchoolDtos.OccurrenceResponse::date).doesNotContain(first);
+        assertThat(schools.participantsOf(owner.getEmail(), ev.id())).isEmpty();
+    }
+
+    @Test
+    void aCourseIsOneSignUpForAllRemainingClasses() {
+        User owner = user("Schule"), lea = user("Lea");
+        var ev = weekly(owner, "COURSE", null);
+        assertThat(ev.remainingClasses()).isGreaterThan(5);
+        assertThat(schools.join(lea.getEmail(), ev.id()).joined()).isTrue();
+        assertThat(schools.participantsOf(owner.getEmail(), ev.id())).singleElement()
+                .extracting(SchoolDtos.ParticipantResponse::occurrenceDate).isNull();
+        // The kind of sign-up is fixed once people have signed up.
+        var r = new EventRequest("Social walk", null, ev.startsAt(), ev.startsAt().plusSeconds(3600), null, null, null, null,
+                null, null, java.util.List.of("TUESDAY", "FRIDAY"), ev.endsAt().atZone(com.dogsout.server.WeeklySeries.ZONE).toLocalDate(), "DATE");
+        assertThatThrownBy(() -> schools.updateEvent(owner.getEmail(), ev.id(), r)).hasMessageContaining("signed up");
     }
 }

@@ -59,8 +59,17 @@ public final class SchoolDtos {
             @Min(1) @Max(500) Integer maxParticipants,
             /** A weekly course: its weekdays and last day. startsAt/endsAt are then the first class. */
             List<String> repeatWeekdays,
-            java.time.LocalDate repeatUntil
+            java.time.LocalDate repeatUntil,
+            /** For a weekly event: "DATE" (pick classes) or "COURSE" (all at once). Defaults to DATE. */
+            String signupMode
     ) {}
+
+    /** Which class to sign up for; left out for a one-off or a whole course. */
+    public record JoinRequest(java.time.LocalDate date) {}
+
+    /** One upcoming class of a weekly event. */
+    public record OccurrenceResponse(java.time.LocalDate date, Instant startsAt, int participantCount,
+                                     boolean joined, boolean full) {}
 
     public record PhotoResponse(Long id, String url, String thumbUrl) {}
 
@@ -89,10 +98,18 @@ public final class SchoolDtos {
             List<String> repeatWeekdays,
             Integer occurrenceMinutes,
             /** When the next class (or the event) starts; null once it is over. */
-            Instant nextStartsAt
+            Instant nextStartsAt,
+            /** DATE or COURSE for a weekly event; null for a one-off. */
+            String signupMode,
+            /** The next classes of a weekly event (up to 8), with places per class in DATE mode. */
+            List<OccurrenceResponse> occurrences,
+            /** COURSE mode: how many classes are still to come — what signing up commits to. */
+            int remainingClasses
     ) {}
 
-    public record ParticipantResponse(Long userId, String name, String profilePicture, Instant joinedAt) {}
+    /** occurrenceDate: the class signed up for, null for a whole course or a one-off. */
+    public record ParticipantResponse(Long userId, String name, String profilePicture, Instant joinedAt,
+                                      java.time.LocalDate occurrenceDate) {}
 
     public record ReviewRequest(@NotBlank String status, @Size(max = 500) String note) {}
 
