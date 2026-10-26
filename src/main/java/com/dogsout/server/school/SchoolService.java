@@ -56,6 +56,7 @@ public class SchoolService {
     private final ProfanityFilter profanityFilter;
     private final PushNotificationService pushNotificationService;
     private final EmailService emailService;
+    private final com.dogsout.server.moderation.ModerationService moderationService;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -160,10 +161,13 @@ public class SchoolService {
     @Transactional(readOnly = true)
     public List<EventResponse> upcomingNearby(String email) {
         User me = findUser(email);
-        return events.findByCancelledFalseAndStartsAtAfterOrderByStartsAtAsc(Instant.now()).stream()
+        // By end, not start: a course that began last month is still running.
+        return events.findByCancelledFalseAndEndsAtAfter(Instant.now()).stream()
                 .filter(e -> DogSchool.APPROVED.equals(e.getSchool().getStatus()))
                 .filter(e -> withinReach(me, lat(e), lng(e)) || joined(e, me))
                 .map(e -> toEvent(e, me))
+                .filter(e -> e.nextStartsAt() != null)
+                .sorted(Comparator.comparing(EventResponse::nextStartsAt))
                 .toList();
     }
 
@@ -231,7 +235,11 @@ public class SchoolService {
     public EventResponse join(String email, Long id) {
         User me = findUser(email);
         SchoolEvent event = visibleEvent(id, me);
-        if (event.isCancelled() || !event.getStartsAt().isAfter(Instant.now())) {
+        // A course takes sign-ups until its last class; a one-off until it starts.
+        boolean open = event.getRepeatWeekdays() != null
+                ? event.getEndsAt().isAfter(Instant.now())
+                : event.getStartsAt().isAfter(Instant.now());
+        if (event.isCancelled() || !open) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This event is not taking sign-ups");
         }
         if (event.getSchool().getOwner().getId().equals(me.getId())) {
@@ -273,17 +281,44 @@ public class SchoolService {
     public List<String> deleteAllForUser(User user) {
         List<String> keys = new ArrayList<>();
         participants.deleteAll(participants.findByUser(user));
-        schools.findByOwner(user).ifPresent(school -> {
-            for (SchoolEvent e : events.findBySchoolOrderByStartsAtAsc(school)) {
-                participants.deleteAll(participants.findByEventOrderByJoinedAtAsc(e));
-                List<SchoolEventPhoto> ps = eventPhotos.findByEventOrderBySortOrderAsc(e);
-                ps.forEach(p -> keys.add(p.getStorageKey()));
-                eventPhotos.deleteAll(ps);
-                events.delete(e);
+        schools.findByOwner(user).ifPresent(school -> keys.addAll(deleteSchool(school)));
+        return keys;
+    }
+
+    /** The owner closing their school's page. Anyone signed up for what is still to come is told. */
+    public void deleteMine(String email) {
+        User me = findUser(email);
+        DogSchool school = schools.findByOwner(me)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No dog school"));
+        for (SchoolEvent e : events.findBySchoolOrderByStartsAtAsc(school)) {
+            if (!e.isCancelled() && e.getEndsAt() != null && e.getEndsAt().isAfter(Instant.now())) {
+                tellParticipants(e, "Cancelled: " + e.getTitle(), school.getName() + " is no longer on Dogs Out.");
             }
-            if (school.getLogoKey() != null) keys.add(school.getLogoKey());
-            schools.delete(school);
-        });
+        }
+        deleteSchool(school).forEach(photoService::delete);
+    }
+
+    /** Reported to the admin, who can take it down from the Schools tab. Approved, so not hidden at once. */
+    public void report(String email, Long id, com.dogsout.server.moderation.ReportRequest request) {
+        User me = findUser(email);
+        DogSchool school = visibleSchool(id, me);
+        if (school.getOwner().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot report your own school");
+        }
+        moderationService.reportSchool(me, school.getOwner(), school.getId(), school.getName(), describe(school), request);
+    }
+
+    private List<String> deleteSchool(DogSchool school) {
+        List<String> keys = new ArrayList<>();
+        for (SchoolEvent e : events.findBySchoolOrderByStartsAtAsc(school)) {
+            participants.deleteAll(participants.findByEventOrderByJoinedAtAsc(e));
+            List<SchoolEventPhoto> ps = eventPhotos.findByEventOrderBySortOrderAsc(e);
+            ps.forEach(p -> keys.add(p.getStorageKey()));
+            eventPhotos.deleteAll(ps);
+            events.delete(e);
+        }
+        if (school.getLogoKey() != null) keys.add(school.getLogoKey());
+        schools.delete(school);
         return keys;
     }
 
@@ -300,11 +335,27 @@ public class SchoolService {
         s.setOpeningHours(blankToNull(r.openingHours()));
     }
 
+    /** A course runs for up to a year; after that, post it again. */
+    static final int MAX_COURSE_DAYS = 366;
+
+    private static boolean isCourse(EventRequest r) {
+        return r.repeatWeekdays() != null && !r.repeatWeekdays().isEmpty() && r.repeatUntil() != null;
+    }
+
     private void apply(SchoolEvent e, EventRequest r) {
         e.setTitle(r.title().trim());
         e.setDescription(blankToNull(r.description()));
         e.setStartsAt(r.startsAt());
-        e.setEndsAt(r.endsAt());
+        if (isCourse(r)) {
+            var days = com.dogsout.server.WeeklySeries.weekdays(r.repeatWeekdays());
+            e.setEndsAt(com.dogsout.server.WeeklySeries.lastEnd(r.startsAt(), r.endsAt(), days, r.repeatUntil()));
+            e.setRepeatWeekdays(com.dogsout.server.WeeklySeries.encode(days));
+            e.setOccurrenceMinutes((int) java.time.Duration.between(r.startsAt(), r.endsAt()).toMinutes());
+        } else {
+            e.setEndsAt(r.endsAt());
+            e.setRepeatWeekdays(null);
+            e.setOccurrenceMinutes(null);
+        }
         e.setPlaceName(blankToNull(r.placeName()));
         e.setAddress(blankToNull(r.address()));
         e.setLatitude(r.latitude());
@@ -317,8 +368,14 @@ public class SchoolService {
         if (!r.startsAt().isAfter(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The event must be in the future");
         }
-        if (r.endsAt() != null && !r.endsAt().isAfter(r.startsAt())) {
+        if (!r.endsAt().isAfter(r.startsAt())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The end must be after the start");
+        }
+        if (isCourse(r)) {
+            com.dogsout.server.WeeklySeries.validate(r.startsAt(), r.endsAt(),
+                    com.dogsout.server.WeeklySeries.weekdays(r.repeatWeekdays()), r.repeatUntil(), MAX_COURSE_DAYS);
+        } else if (java.time.Duration.between(r.startsAt(), r.endsAt()).toDays() > 14) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "An event lasts at most two weeks");
         }
         checkWords(r.title(), r.description(), r.placeName());
     }
@@ -411,8 +468,11 @@ public class SchoolService {
         boolean mine = s.getOwner().getId().equals(me.getId());
         List<EventResponse> upcoming = withEvents
                 ? events.findBySchoolOrderByStartsAtAsc(s).stream()
-                    .filter(e -> !e.isCancelled() && e.getStartsAt().isAfter(Instant.now()))
-                    .map(e -> toEvent(e, me)).toList()
+                    .filter(e -> !e.isCancelled() && e.getEndsAt() != null && e.getEndsAt().isAfter(Instant.now()))
+                    .map(e -> toEvent(e, me))
+                    .filter(e -> e.nextStartsAt() != null)
+                    .sorted(Comparator.comparing(EventResponse::nextStartsAt))
+                    .toList()
                 : List.of();
         return new SchoolResponse(s.getId(), s.getName(), s.getDescription(), s.getAddress(),
                 s.getLatitude(), s.getLongitude(), s.getPhone(), s.getWebsite(), s.getOpeningHours(),
@@ -434,7 +494,11 @@ public class SchoolService {
                 e.getAddress() != null ? e.getAddress() : s.getAddress(),
                 lat(e), lng(e), e.getPriceRappen(), e.getMaxParticipants(),
                 (int) participants.countByEvent(e), joined(e, me), s.getOwner().getId().equals(me.getId()),
-                e.isCancelled(), distance(me, lat(e), lng(e)), ps);
+                e.isCancelled(), distance(me, lat(e), lng(e)), ps,
+                e.getRepeatWeekdays() == null ? List.of() : List.of(e.getRepeatWeekdays().split(",")),
+                e.getOccurrenceMinutes(),
+                com.dogsout.server.WeeklySeries.nextStart(e.getStartsAt(), e.getEndsAt(), e.getRepeatWeekdays(),
+                        e.getOccurrenceMinutes(), Instant.now()));
     }
 
     private String describe(DogSchool s) {

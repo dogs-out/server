@@ -286,6 +286,29 @@ public class ModerationService {
         notifyAdmin("Listing report: %s (id %d)".formatted(title, listingId), body);
     }
 
+    /** A dog school's page, reported by someone who saw it. Taken down, if need be, from the admin Schools tab. */
+    public void reportSchool(User reporter, User owner, Long schoolId, String name, String description,
+                             ReportRequest request) {
+        String body = """
+                A dog school has been reported in Dogs Out.
+
+                Reporter: %s (id %d, %s)
+                School account: %s (id %d, %s)
+
+                Reason: %s
+                Message from reporter: %s
+
+                ── School %d ─────────────────────
+                %s""".formatted(
+                reporter.getName(), reporter.getId(), reporter.getEmail(),
+                owner.getName(), owner.getId(), owner.getEmail(),
+                request.reason(),
+                request.message() == null || request.message().isBlank() ? "(none)" : request.message().trim(),
+                schoolId, description);
+        saveReport("SCHOOL", reporter, owner, null, null, request, body);
+        notifyAdmin("Dog school report: %s (id %d)".formatted(name, schoolId), body);
+    }
+
     /** Keeps the report for the admin page; the email stays as the notification. */
     private void saveReport(String kind, User reporter, User reported, Long matchId, Long reviewId,
                             ReportRequest request, String details) {

@@ -49,13 +49,17 @@ public final class SchoolDtos {
             @NotBlank @Size(max = 100) String title,
             @Size(max = 2000) String description,
             @NotNull Instant startsAt,
-            Instant endsAt,
+            /** For a course, the end of the first class. */
+            @NotNull Instant endsAt,
             @Size(max = 200) String placeName,
             @Size(max = 300) String address,
             @DecimalMin("-90.0") @DecimalMax("90.0") Double latitude,
             @DecimalMin("-180.0") @DecimalMax("180.0") Double longitude,
             @Min(0) @Max(1_000_000) Integer priceRappen,
-            @Min(1) @Max(500) Integer maxParticipants
+            @Min(1) @Max(500) Integer maxParticipants,
+            /** A weekly course: its weekdays and last day. startsAt/endsAt are then the first class. */
+            List<String> repeatWeekdays,
+            java.time.LocalDate repeatUntil
     ) {}
 
     public record PhotoResponse(Long id, String url, String thumbUrl) {}
@@ -80,7 +84,12 @@ public final class SchoolDtos {
             boolean mine,
             boolean cancelled,
             double distanceKm,
-            List<PhotoResponse> photos
+            List<PhotoResponse> photos,
+            /** A course's weekdays; empty for a one-off. endsAt is then the end of the last class. */
+            List<String> repeatWeekdays,
+            Integer occurrenceMinutes,
+            /** When the next class (or the event) starts; null once it is over. */
+            Instant nextStartsAt
     ) {}
 
     public record ParticipantResponse(Long userId, String name, String profilePicture, Instant joinedAt) {}

@@ -52,7 +52,7 @@ class SchoolFlowTest {
     EventRequest event(Integer places) {
         Instant start = Instant.now().plus(Duration.ofDays(3));
         return new EventRequest("Welpenkurs", null, start, start.plus(Duration.ofHours(1)),
-                null, null, null, null, 4500, places);
+                null, null, null, null, 4500, places, null, null);
     }
 
     @Test
@@ -113,5 +113,43 @@ class SchoolFlowTest {
         userService.deleteAccount(owner.getEmail());
         assertThat(schoolRepo.findAll()).isEmpty();
         assertThat(schools.upcomingNearby(lea.getEmail())).isEmpty();
+    }
+
+    @Test
+    void theOwnerCanCloseTheSchoolAndOthersCanReportIt() {
+        User owner = user("Schule"), lea = user("Lea");
+        var mine = schools.register(owner.getEmail(), school());
+        schools.review(mine.id(), "APPROVED", null);
+        var ev = schools.createEvent(owner.getEmail(), event(null));
+        schools.join(lea.getEmail(), ev.id());
+
+        schools.report(lea.getEmail(), mine.id(), new com.dogsout.server.moderation.ReportRequest("Scam or spam", null));
+        assertThatThrownBy(() -> schools.report(owner.getEmail(), mine.id(),
+                new com.dogsout.server.moderation.ReportRequest("Other", null))).isInstanceOf(ResponseStatusException.class);
+
+        schools.deleteMine(owner.getEmail());
+        assertThat(schools.mine(owner.getEmail())).isEmpty();
+        assertThat(schools.upcomingNearby(lea.getEmail())).isEmpty();
+    }
+
+    @Test
+    void aWeeklyCourseStaysListedUntilItsLastClass() {
+        User owner = user("Schule"), lea = user("Lea");
+        var mine = schools.register(owner.getEmail(), school());
+        schools.review(mine.id(), "APPROVED", null);
+        var zone = com.dogsout.server.WeeklySeries.ZONE;
+        var firstTue = java.time.LocalDate.now(zone).with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.TUESDAY))
+                .atTime(13, 0).atZone(zone);
+        var course = schools.createEvent(owner.getEmail(), new EventRequest("Junghundekurs", null,
+                firstTue.toInstant(), firstTue.plusHours(1).toInstant(), null, null, null, null, 25000, 8,
+                java.util.List.of("TUESDAY", "FRIDAY"), firstTue.toLocalDate().plusWeeks(6).plusDays(3)));
+
+        assertThat(course.repeatWeekdays()).containsExactly("TUESDAY", "FRIDAY");
+        assertThat(course.occurrenceMinutes()).isEqualTo(60);
+        assertThat(course.nextStartsAt()).isEqualTo(firstTue.toInstant());
+        // Ends with the last class: the Friday six weeks on.
+        assertThat(course.endsAt().atZone(zone).getDayOfWeek()).isEqualTo(java.time.DayOfWeek.FRIDAY);
+        assertThat(schools.upcomingNearby(lea.getEmail())).hasSize(1);
+        assertThat(schools.join(lea.getEmail(), course.id()).joined()).isTrue();
     }
 }

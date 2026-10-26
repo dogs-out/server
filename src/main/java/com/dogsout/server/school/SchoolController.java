@@ -48,6 +48,19 @@ public class SchoolController {
         return schools.update(auth.getName(), request);
     }
 
+    @DeleteMapping("/schools/mine")
+    public ResponseEntity<Void> deleteMine(Authentication auth) {
+        schools.deleteMine(auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/schools/{id}/report")
+    public ResponseEntity<Void> report(Authentication auth, @PathVariable Long id,
+                                       @Valid @RequestBody com.dogsout.server.moderation.ReportRequest request) {
+        schools.report(auth.getName(), id, request);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping(value = "/schools/mine/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public SchoolResponse logo(Authentication auth, @RequestParam("file") MultipartFile file) {
         return schools.setLogo(auth.getName(), file);

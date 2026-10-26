@@ -38,6 +38,17 @@ public class SchoolEvent {
 
     private Instant endsAt;
 
+    /**
+     * A weekly course: the weekdays it runs on ("TUESDAY,FRIDAY"), null for a one-off.
+     * startsAt is then the first class and endsAt the end of the last (see WeeklySeries);
+     * signing up is for the whole course.
+     */
+    @Column(length = 80)
+    private String repeatWeekdays;
+
+    /** How long one class of a course lasts; null for a one-off. */
+    private Integer occurrenceMinutes;
+
     @Column(length = 200)
     private String placeName;
 

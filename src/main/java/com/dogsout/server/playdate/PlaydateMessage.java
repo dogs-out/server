@@ -29,7 +29,7 @@ public class PlaydateMessage {
     @JoinColumn(name = "sender_id")
     private User sender;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @CreationTimestamp

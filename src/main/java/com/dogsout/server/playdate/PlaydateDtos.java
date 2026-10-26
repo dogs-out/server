@@ -94,5 +94,5 @@ public final class PlaydateDtos {
 
     public record InviteRequest(@NotNull List<Long> userIds) {}
 
-    public record SendPlaydateMessageRequest(@NotBlank @Size(max = 2000) String content) {}
+    public record SendPlaydateMessageRequest(@NotBlank @Size(max = 2000, message = "A message can be up to 2000 characters.") String content) {}
 }

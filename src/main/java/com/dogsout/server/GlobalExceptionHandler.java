@@ -18,4 +18,16 @@ public class GlobalExceptionHandler {
                 .orElse("Invalid input.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(message));
     }
+
+    /**
+     * A database error is ours, not the user's, and its text (SQL, table names) is
+     * no use to them — it was shown verbatim in the chat once. Logged in full here,
+     * answered with one plain sentence.
+     */
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<MessageResponse> handleDatabase(org.springframework.dao.DataAccessException ex) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Database error", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new MessageResponse("Something went wrong on our side. Please try again."));
+    }
 }

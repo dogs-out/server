@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface SchoolEventRepository extends JpaRepository<SchoolEvent, Long> {
     List<SchoolEvent> findBySchoolOrderByStartsAtAsc(DogSchool school);
-    List<SchoolEvent> findByCancelledFalseAndStartsAtAfterOrderByStartsAtAsc(Instant after);
+    List<SchoolEvent> findByCancelledFalseAndEndsAtAfter(Instant after);
 }

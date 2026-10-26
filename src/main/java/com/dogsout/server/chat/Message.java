@@ -33,7 +33,7 @@ public class Message {
     @JoinColumn(name = "match_id")
     private Match match;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     /**

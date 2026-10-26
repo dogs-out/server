@@ -64,7 +64,7 @@ public final class MarketDtos {
             boolean unread
     ) {}
 
-    public record MessageRequest(@NotBlank @Size(max = 2000) String content) {}
+    public record MessageRequest(@NotBlank @Size(max = 2000, message = "A message can be up to 2000 characters.") String content) {}
 
     public record MessageResponse(Long id, Long conversationId, Long senderId, String content, Instant sentAt) {}
 }
