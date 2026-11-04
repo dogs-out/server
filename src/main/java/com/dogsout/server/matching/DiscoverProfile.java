@@ -35,5 +35,7 @@ public record DiscoverProfile(
          */
         boolean celebratingToday,
         /** Their current status, or null if they have none or it has run out. */
-        String walkStatus
+        String walkStatus,
+        /** A Premium member who chose to show it: a star next to the name. */
+        boolean premiumBadge
 ) {}

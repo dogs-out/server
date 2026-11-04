@@ -183,6 +183,12 @@ public class UserService {
         userRepository.save(user);
     }
 
+    public void setShowPremiumBadge(String email, boolean show) {
+        User user = findUser(email);
+        user.setShowPremiumBadge(show);
+        userRepository.save(user);
+    }
+
     public void setDailyRemindersEnabled(String email, boolean enabled) {
         User user = findUser(email);
         user.setDailyRemindersEnabled(enabled);
@@ -364,6 +370,7 @@ public class UserService {
                 user.getMaxDogAge(),
                 !Boolean.FALSE.equals(user.getNotificationsEnabled()),
                 !Boolean.FALSE.equals(user.getDailyRemindersEnabled()),
+                !Boolean.FALSE.equals(user.getShowPremiumBadge()),
                 user.getTermsAcceptedAt() != null,
                 user.getTermsAcceptedAt(),
                 WalkStatus.orDefault(user.activeWalkStatus()).name(),

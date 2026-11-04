@@ -259,11 +259,18 @@ public class DiscoverService {
                         ? com.dogsout.server.user.Availability.split(u.getSeekerAvailability()) : List.of(),
                 celebratingToday(u),
                 // Never null: somebody who has not picked a status is at home.
-                com.dogsout.server.user.WalkStatus.orDefault(u.activeWalkStatus()).name()
+                com.dogsout.server.user.WalkStatus.orDefault(u.activeWalkStatus()).name(),
+                premiumBadge(u)
         );
     }
 
     /** Their own birthday, or one of their dogs'. Compared on month and day only. */
+    /** Premium, and not switched off: on by default, because people pay partly to be seen. */
+    static boolean premiumBadge(User u) {
+        return u.getPremiumUntil() != null && u.getPremiumUntil().isAfter(java.time.Instant.now())
+                && !Boolean.FALSE.equals(u.getShowPremiumBadge());
+    }
+
     private boolean celebratingToday(User u) {
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
         if (isSameDayOfYear(u.getDateOfBirth(), today)) return true;

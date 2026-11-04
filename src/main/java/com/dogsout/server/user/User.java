@@ -249,6 +249,9 @@ public class User {
     /** DogsOut Premium runs until this moment; null or past means not premium. */
     private Instant premiumUntil;
 
+    /** Whether a Premium member shows the star next to their name; null means yes. */
+    private Boolean showPremiumBadge;
+
     /**
      * The status as it should be read anywhere: an expired one is no status.
      *

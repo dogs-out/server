@@ -37,6 +37,8 @@ public record UserResponse(
         Boolean notificationsEnabled,
         /** The once-a-day nudge; never null, on unless turned off. */
         boolean dailyRemindersEnabled,
+        /** Premium star next to their name, when they have Premium; on unless turned off. */
+        boolean showPremiumBadge,
         boolean termsAccepted,
         /** When the terms were last accepted; the app asks again when its terms are newer. */
         java.time.Instant termsAcceptedAt,

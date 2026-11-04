@@ -57,6 +57,12 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/me/premium-badge")
+    public ResponseEntity<Void> setShowPremiumBadge(Authentication auth, @RequestBody Map<String, Boolean> body) {
+        userService.setShowPremiumBadge(auth.getName(), !Boolean.FALSE.equals(body.get("enabled")));
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/me/daily-reminders")
     public ResponseEntity<Void> setDailyRemindersEnabled(Authentication auth, @RequestBody Map<String, Boolean> body) {
         userService.setDailyRemindersEnabled(auth.getName(), Boolean.TRUE.equals(body.get("enabled")));
