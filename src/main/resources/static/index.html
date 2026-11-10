@@ -4,71 +4,249 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dogs Out — meet dog owners nearby</title>
-<meta name="description" content="Dogs Out helps dog owners in Switzerland meet nearby: swipe to match, plan playdates in the park, find a dogsitter, and help find lost dogs.">
+<meta name="description" content="Dogs Out helps dog owners in Switzerland meet nearby: find walking partners, plan playdates in the park, find a dogsitter, and help find lost dogs. Free for iPhone and Android.">
+<meta name="theme-color" content="#2E9E6B">
+<link rel="icon" href="/img/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/img/icon-180.png">
+<!-- What Facebook, WhatsApp and Instagram show when someone shares dogsout.app -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dogsout.app/">
+<meta property="og:title" content="Dogs Out — meet dog owners nearby">
+<meta property="og:description" content="Find walking partners, plan playdates, find a dogsitter. Free for iPhone and Android.">
+<meta property="og:image" content="https://api.dogsout.app/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/home.css">
 </head>
-<body>
-<main class="page">
+<body class="home">
 
-  <div class="masthead">
-    <span class="wordmark">Dogs Out<span class="paw"> 🐾</span></span>
-    <span class="tag">Dog owners, nearby</span>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-apple" viewBox="0 0 24 24"><path fill="currentColor" d="M16.37 12.7c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.76 2.27-1.6 2.78-.41 6.9 1.15 9.15.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.67zM14.1 5.95c.63-.77 1.06-1.83.94-2.89-.91.04-2.01.61-2.67 1.37-.58.67-1.1 1.76-.96 2.8 1.02.08 2.06-.52 2.69-1.28z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M3.6 2.3c-.2.2-.3.6-.3 1v17.4c0 .4.1.8.3 1l9.7-9.7L3.6 2.3zm10.8 10.8 2.7 2.7-11.6 6.6c-.3.2-.7.2-1 .1l9.9-9.4zm0-2.2L4.5 1.5c.3-.1.7-.1 1 .1l11.6 6.6-2.7 2.7zm3.9 4.1-3-3 3-3 3.4 1.9c.9.5.9 1.8 0 2.3l-3.4 1.8z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <img src="/img/icon-64.png" alt="" width="32" height="32">
+    <span>Dogs Out</span>
+  </a>
+  <div class="topbar-right">
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="de">DE</button>
+      <button type="button" data-set-lang="en">EN</button>
+    </div>
+    <a class="pill" href="#download" data-i18n="nav.get">Get the app</a>
   </div>
+</header>
 
-  <h1>Meet the dogs down the street</h1>
-  <p class="lede">
-    Dogs Out puts dog owners in touch with each other nearby — swipe to match, plan playdates in
-    the park, see who's out for a walk, find a dogsitter, and help find a dog that went missing.
-  </p>
+<main>
 
-  <div class="stores">
-    <a class="store" href="https://apps.apple.com/ch/app/id6788741634">Download on the App Store</a>
-    <a class="store" href="https://play.google.com/store/apps/details?id=com.dogsout.app">Get it on Google Play</a>
-  </div>
+  <section class="hero">
+    <picture>
+      <source media="(max-width: 700px)" srcset="/img/hero-960.jpg">
+      <img class="hero-art" src="/img/hero.jpg" width="1915" height="821"
+           alt="Dogs playing in a park by Lake Zurich, with a black Labrador holding a paw sign">
+    </picture>
+    <div class="hero-text">
+      <h1 data-i18n="hero.title">Your dog's new best friends live around the corner</h1>
+      <p class="lede" data-i18n="hero.lede">Dogs Out connects dog owners nearby. Find walking partners, plan playdates in the park, see who's out right now, and find a dogsitter you can trust.</p>
+      <div class="stores" id="download">
+        <a class="store" data-store="ios" href="https://apps.apple.com/ch/app/id6788741634">
+          <svg aria-hidden="true"><use href="#i-apple"/></svg>
+          <span><small data-i18n="store.iosSmall">Download on the</small>App Store</span>
+        </a>
+        <a class="store" data-store="android" href="https://play.google.com/store/apps/details?id=com.dogsout.app">
+          <svg aria-hidden="true"><use href="#i-play"/></svg>
+          <span><small data-i18n="store.androidSmall">Get it on</small>Google Play</span>
+        </a>
+      </div>
+      <p class="trust" data-i18n="hero.trust">Free · iPhone &amp; Android · Already 350+ dog owners in Switzerland</p>
+    </div>
+  </section>
 
-  <nav class="cards">
-    <a class="card" href="/legal/support.html">
-      <span class="title">Help &amp; support <span class="arrow">→</span></span>
-      <p class="what">Answers to common questions, and how to reach us when something goes wrong.</p>
-    </a>
-    <a class="card" href="/legal/feedback.html">
-      <span class="title">Feedback <span class="arrow">→</span></span>
-      <p class="what">An idea, a bug, something you'd like changed — how to tell us.</p>
-    </a>
-    <a class="card" href="/legal/terms.html">
-      <span class="title">Terms of Use <span class="arrow">→</span></span>
-      <p class="what">The rules for using Dogs Out: meeting up, dogsitting, SOS alerts, ads and liability.</p>
-    </a>
-    <a class="card" href="/legal/privacy.html">
-      <span class="title">Privacy Policy <span class="arrow">→</span></span>
-      <p class="what">What data we store, why, who else sees it, how long we keep it, and your rights.</p>
-    </a>
-    <a class="card" href="/legal/delete-account.html">
-      <span class="title">Delete your account <span class="arrow">→</span></span>
-      <p class="what">How to remove your account and everything in it, even if you can't sign in any more.</p>
-    </a>
-    <a class="card" href="/legal/child-safety.html">
-      <span class="title">Child safety <span class="arrow">→</span></span>
-      <p class="what">Dogs Out is for adults only. Our standards and how to report a concern.</p>
-    </a>
-  </nav>
+  <section class="previews" aria-labelledby="previews-title">
+    <h2 id="previews-title" data-i18n="previews.title">A look inside</h2>
+    <div class="shots">
+      <figure>
+        <img src="/img/walking_partners.jpg" width="620" height="1342" loading="lazy" alt="Discover screen showing a dog profile">
+        <figcaption data-i18n="previews.walk">Find walking partners nearby</figcaption>
+      </figure>
+      <figure>
+        <img src="/img/dogsitting.jpg" width="620" height="1342" loading="lazy" alt="Dogsitting screen with a list of sitters">
+        <figcaption data-i18n="previews.sit">Offer or find a dogsitter</figcaption>
+      </figure>
+      <figure>
+        <img src="/img/playdates.jpg" width="620" height="1342" loading="lazy" alt="Playdates screen with a dog meet-up">
+        <figcaption data-i18n="previews.play">Plan meetups and walks together</figcaption>
+      </figure>
+      <figure>
+        <img src="/img/welcome.jpg" width="620" height="1342" loading="lazy" alt="Welcome screen with sign-in options">
+        <figcaption data-i18n="previews.start">Sign up in a minute</figcaption>
+      </figure>
+    </div>
+  </section>
 
-  <p class="note">
-    Dogs Out is a mobile app. These pages cover the things that are easier to read on a bigger screen.
-  </p>
+  <section class="features" aria-labelledby="features-title">
+    <h2 id="features-title" data-i18n="features.title">Everything for life with a dog, nearby</h2>
+    <div class="feature-grid">
+      <div class="feature"><span class="emoji">🐾</span><h3 data-i18n="f.discover.t">Discover</h3><p data-i18n="f.discover.d">Swipe through dogs and owners nearby. Both give a treat — it's a match, and you can chat.</p></div>
+      <div class="feature"><span class="emoji">🌳</span><h3 data-i18n="f.play.t">Playdates</h3><p data-i18n="f.play.d">Meet in the park, with a group chat for everyone who's coming.</p></div>
+      <div class="feature"><span class="emoji">🚶</span><h3 data-i18n="f.out.t">Who's outside</h3><p data-i18n="f.out.d">Show your matches you're out for a walk right now — and see who else is.</p></div>
+      <div class="feature"><span class="emoji">🏡</span><h3 data-i18n="f.sit.t">Dogsitting</h3><p data-i18n="f.sit.d">Find a sitter for a day, a weekend or every Tuesday — or offer to sit yourself.</p></div>
+      <div class="feature"><span class="emoji">🆘</span><h3 data-i18n="f.sos.t">Lost dog alert</h3><p data-i18n="f.sos.d">If your dog runs off, one tap alerts dog owners in the area, with photos.</p></div>
+      <div class="feature"><span class="emoji">❤️</span><h3 data-i18n="f.shelter.t">Shelters</h3><p data-i18n="f.shelter.d">Thinking about adopting? See dog shelters in Switzerland, Germany and Austria, closest first.</p></div>
+    </div>
+  </section>
+
+  <section class="steps" aria-labelledby="steps-title">
+    <h2 id="steps-title" data-i18n="steps.title">How it works</h2>
+    <ol>
+      <li><strong data-i18n="s1.t">Download Dogs Out</strong><span data-i18n="s1.d">Free on the App Store and Google Play.</span></li>
+      <li><strong data-i18n="s2.t">Create your dog's profile</strong><span data-i18n="s2.d">A photo, a few words, what your dog loves.</span></li>
+      <li><strong data-i18n="s3.t">Meet up</strong><span data-i18n="s3.d">Match, chat, and head out together.</span></li>
+    </ol>
+  </section>
+
+  <section class="privacy-band">
+    <span class="emoji">🔒</span>
+    <p data-i18n="privacy.text">Your exact location is never shown — only a rounded distance. You can even use Dogs Out without sharing GPS at all. Made in Zürich.</p>
+  </section>
+
+  <section class="cta">
+    <h2 data-i18n="cta.title">Ready for the next walk?</h2>
+    <div class="stores">
+      <a class="store" data-store="ios" href="https://apps.apple.com/ch/app/id6788741634">
+        <svg aria-hidden="true"><use href="#i-apple"/></svg>
+        <span><small data-i18n="store.iosSmall">Download on the</small>App Store</span>
+      </a>
+      <a class="store" data-store="android" href="https://play.google.com/store/apps/details?id=com.dogsout.app">
+        <svg aria-hidden="true"><use href="#i-play"/></svg>
+        <span><small data-i18n="store.androidSmall">Get it on</small>Google Play</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="help" aria-labelledby="help-title">
+    <h2 id="help-title" data-i18n="help.title">Help &amp; legal</h2>
+    <nav class="cards">
+      <a class="card" href="/legal/support.html">
+        <span class="title"><span data-i18n="c.support.t">Help &amp; support</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.support.d">Answers to common questions, and how to reach us.</p>
+      </a>
+      <a class="card" href="/legal/feedback.html">
+        <span class="title"><span data-i18n="c.feedback.t">Feedback</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.feedback.d">An idea, a bug, something you'd like changed.</p>
+      </a>
+      <a class="card" href="/legal/terms.html" data-href-de="/legal/nutzungsbedingungen.html">
+        <span class="title"><span data-i18n="c.terms.t">Terms of Use</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.terms.d">The rules for using Dogs Out.</p>
+      </a>
+      <a class="card" href="/legal/privacy.html" data-href-de="/legal/datenschutz.html">
+        <span class="title"><span data-i18n="c.privacy.t">Privacy Policy</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.privacy.d">What data we store, why, and your rights.</p>
+      </a>
+      <a class="card" href="/legal/delete-account.html">
+        <span class="title"><span data-i18n="c.delete.t">Delete your account</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.delete.d">Remove your account and everything in it.</p>
+      </a>
+      <a class="card" href="/legal/child-safety.html">
+        <span class="title"><span data-i18n="c.child.t">Child safety</span> <span class="arrow">→</span></span>
+        <p class="what" data-i18n="c.child.d">Dogs Out is for adults only. How to report a concern.</p>
+      </a>
+    </nav>
+  </section>
 
   <footer>
     <a href="/legal/support.html">Support</a>
-    <a href="/legal/feedback.html">Feedback</a>
     <a href="/legal/terms.html">Terms</a>
     <a href="/legal/privacy.html">Privacy</a>
     <a href="/legal/nutzungsbedingungen.html">Nutzungsbedingungen</a>
     <a href="/legal/datenschutz.html">Datenschutz</a>
-    <a href="/legal/delete-account.html">Delete account</a>
     <a href="mailto:help@dogsout.app">help@dogsout.app</a>
     <span class="spacer">Dogs Out · Zürich, Switzerland</span>
   </footer>
 
 </main>
+
+<script>
+// German for German-speaking visitors (most of them come from Swiss dog groups), English otherwise.
+// The English text lives in the HTML, so the page reads fine without this script.
+(function () {
+  var DE = {
+    'nav.get': 'App holen',
+    'hero.title': 'Die neuen besten Freunde deines Hundes wohnen gleich um die Ecke',
+    'hero.lede': 'Dogs Out bringt Hundebesitzer in deiner Nähe zusammen. Finde Spaziergang-Partner, plane Treffen im Park, sieh, wer gerade draussen ist, und finde einen Hundesitter, dem du vertraust.',
+    'store.iosSmall': 'Laden im',
+    'store.androidSmall': 'Jetzt bei',
+    'hero.trust': 'Gratis · iPhone & Android · Schon über 350 Hundebesitzer in der Schweiz',
+    'previews.title': 'Ein Blick in die App',
+    'previews.walk': 'Spaziergang-Partner in der Nähe finden',
+    'previews.sit': 'Hundesitter finden oder selbst anbieten',
+    'previews.play': 'Treffen und Spaziergänge planen',
+    'previews.start': 'In einer Minute angemeldet',
+    'features.title': 'Alles fürs Leben mit Hund – in deiner Nähe',
+    'f.discover.t': 'Entdecken', 'f.discover.d': 'Swipe durch Hunde und Besitzer in der Nähe. Gebt ihr euch beide ein Leckerli, ist es ein Match – und ihr könnt chatten.',
+    'f.play.t': 'Playdates', 'f.play.d': 'Trefft euch im Park, mit einem Gruppenchat für alle, die kommen.',
+    'f.out.t': 'Wer ist draussen', 'f.out.d': 'Zeig deinen Matches, dass du gerade spazieren bist – und sieh, wer sonst unterwegs ist.',
+    'f.sit.t': 'Hundesitting', 'f.sit.d': 'Finde einen Sitter für einen Tag, ein Wochenende oder jeden Dienstag – oder biete selbst an.',
+    'f.sos.t': 'Hund entlaufen', 'f.sos.d': 'Ist dein Hund weggelaufen, alarmierst du mit einem Tipp die Hundebesitzer in der Umgebung, mit Fotos.',
+    'f.shelter.t': 'Tierheime', 'f.shelter.d': 'Du denkst ans Adoptieren? Tierheime in der Schweiz, Deutschland und Österreich, das nächste zuerst.',
+    'steps.title': 'So funktioniert es',
+    's1.t': 'Dogs Out laden', 's1.d': 'Gratis im App Store und bei Google Play.',
+    's2.t': 'Profil für deinen Hund erstellen', 's2.d': 'Ein Foto, ein paar Worte, was dein Hund liebt.',
+    's3.t': 'Treffen', 's3.d': 'Matchen, chatten und zusammen losziehen.',
+    'privacy.text': 'Dein genauer Standort wird nie angezeigt – nur eine gerundete Distanz. Du kannst Dogs Out sogar ganz ohne GPS nutzen. Gemacht in Zürich.',
+    'cta.title': 'Bereit für den nächsten Spaziergang?',
+    'help.title': 'Hilfe & Rechtliches',
+    'c.support.t': 'Hilfe & Support', 'c.support.d': 'Antworten auf häufige Fragen und wie du uns erreichst.',
+    'c.feedback.t': 'Feedback', 'c.feedback.d': 'Eine Idee, ein Fehler, ein Wunsch.',
+    'c.terms.t': 'Nutzungsbedingungen', 'c.terms.d': 'Die Regeln für Dogs Out.',
+    'c.privacy.t': 'Datenschutz', 'c.privacy.d': 'Welche Daten wir speichern, warum, und deine Rechte.',
+    'c.delete.t': 'Konto löschen', 'c.delete.d': 'Dein Konto und alles darin entfernen.',
+    'c.child.t': 'Kinderschutz', 'c.child.d': 'Dogs Out ist nur für Erwachsene. So meldest du ein Anliegen.'
+  };
+  var nodes = document.querySelectorAll('[data-i18n]');
+  var EN = {};
+  nodes.forEach(function (n) { EN[n.getAttribute('data-i18n')] = n.textContent; });
+  var links = document.querySelectorAll('[data-href-de]');
+  links.forEach(function (a) { a.setAttribute('data-href-en', a.getAttribute('href')); });
+
+  function apply(lang) {
+    var dict = lang === 'de' ? DE : EN;
+    nodes.forEach(function (n) { var t = dict[n.getAttribute('data-i18n')]; if (t) n.textContent = t; });
+    links.forEach(function (a) { a.setAttribute('href', a.getAttribute('data-href-' + lang)); });
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-set-lang') === lang));
+    });
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem('lang'); } catch (e) {}
+  var param = new URLSearchParams(location.search).get('lang');
+  var lang = param || saved || ((navigator.language || '').slice(0, 2) === 'de' ? 'de' : 'en');
+  apply(lang === 'de' ? 'de' : 'en');
+  document.querySelectorAll('[data-set-lang]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var l = b.getAttribute('data-set-lang');
+      apply(l);
+      try { localStorage.setItem('lang', l); } catch (e) {}
+    });
+  });
+
+  // On a phone, put that phone's store first and make it the main button.
+  var ua = navigator.userAgent;
+  var mine = /iPhone|iPad|iPod/.test(ua) ? 'ios' : /Android/.test(ua) ? 'android' : null;
+  if (mine) {
+    document.querySelectorAll('.stores').forEach(function (box) {
+      var a = box.querySelector('[data-store="' + mine + '"]');
+      a.classList.add('primary');
+      box.insertBefore(a, box.firstChild);
+    });
+  }
+})();
+</script>
 </body>
 </html>
