@@ -15,19 +15,7 @@
   --measure: 68ch;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #0B1712;
-    --surface: #12211A;
-    --surface-2: #183026;
-    --ink: #EAF5EF;
-    --ink-soft: #9FC3B1;
-    --rule: #22392E;
-    --rule-strong: #2F4E3F;
-    --accent: #52C28E;
-    --accent-ink: #7AD5AA;
-  }
-}
+:root { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -180,3 +168,90 @@ footer {
 footer a { color: var(--ink-soft); }
 footer a:hover { color: var(--accent-ink); }
 footer .spacer { margin-left: auto; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem max(16px, calc((100vw - 1080px) / 2));
+  background: color-mix(in srgb, var(--ground) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.brand img { border-radius: 8px; }
+.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+.lang { display: flex; border: 1px solid var(--rule-strong); border-radius: 999px; overflow: hidden; }
+.lang button {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  padding: 0.3rem 0.65rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.pill {
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.topbar .back { color: var(--ink-soft); font-weight: 600; font-size: 0.9rem; text-decoration: none; }
+.topbar .back:hover { color: var(--accent-ink); }
+@media (max-width: 480px) { .topbar .pill { display: none; } }
+
+/* ---------- the app's floating background (bg.js) ---------- */
+.floaty { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.floaty span {
+  position: absolute;
+  line-height: 1;
+  opacity: calc(var(--o) * var(--floaty-strength, 1));
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+.floaty .floaty-float    { animation-name: floaty-float; }
+.floaty .floaty-diagonal { animation-name: floaty-diagonal; }
+.floaty .floaty-breathe  { animation-name: floaty-breathe; }
+.floaty .floaty-spin     { animation-name: floaty-spin; animation-timing-function: linear; }
+@keyframes floaty-float {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25%      { transform: translate(var(--tx), calc(var(--ty) / 2)) rotate(calc(var(--rot) / 2)); }
+  50%      { transform: translate(0, var(--ty)) rotate(var(--rot)); }
+  75%      { transform: translate(var(--tx), calc(var(--ty) / 2)) rotate(calc(var(--rot) / 2)); }
+}
+@keyframes floaty-diagonal {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  50%      { transform: translate(var(--tx), calc(var(--ty) * 0.65)) rotate(var(--rot)); }
+}
+@keyframes floaty-breathe {
+  0%, 100% { transform: scale(0.86); }
+  50%      { transform: scale(1.14); }
+}
+@keyframes floaty-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .floaty span { animation: none; }
+}

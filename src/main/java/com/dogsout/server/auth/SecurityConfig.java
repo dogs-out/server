@@ -39,8 +39,8 @@ public class SecurityConfig {
                         .requestMatchers("/bones/admob-ssv").permitAll()
                         // Called by RevenueCat with its own shared secret.
                         .requestMatchers("/revenuecat/webhook").permitAll()
-                        // The public website: the welcome page, its stylesheets and images
-                        .requestMatchers("/", "/index.html", "/site.css", "/home.css", "/img/**").permitAll()
+                        // The public website: the welcome page, its stylesheets, background script and images
+                        .requestMatchers("/", "/index.html", "/site.css", "/home.css", "/bg.js", "/img/**").permitAll()
                         // The admin page itself is static and logs in through /auth; its data is not.
                         .requestMatchers("/admin", "/admin/", "/admin/index.html", "/admin/admin.js", "/admin/admin.css").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")

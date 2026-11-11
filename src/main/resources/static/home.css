@@ -1,20 +1,9 @@
-/* The welcome page at dogsout.app. Builds on site.css (palette, cards, footer); the legal
-   pages keep using site.css alone. */
+/* The welcome page at dogsout.app. Builds on site.css (palette, top bar, floating
+   background, cards, footer). */
 
-/* Always light: the illustration and app previews are light, and a dark marketing page
-   reads gloomy next to them. */
 body.home {
-  color-scheme: light;
-  --ground: #F3F9F5;
-  --surface: #FFFFFF;
-  --surface-2: #E6F4EC;
-  --ink: #0D2818;
-  --ink-soft: #4A7760;
-  --rule: #D3E8DC;
-  --rule-strong: #B3D6C2;
-  --accent: #2E9E6B;
-  --accent-ink: #237A53;
-  color: var(--ink);
+  /* Text sits straight on the background here, so the dogs float a little softer than in the app. */
+  --floaty-strength: 0.75;
   background:
     radial-gradient(1200px 500px at 50% -120px, var(--surface-2), transparent 70%),
     var(--ground);
@@ -33,56 +22,6 @@ body.home {
   text-align: center;
   margin: 0 0 1.75rem;
   text-wrap: balance;
-}
-
-/* ---------- top bar ---------- */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem max(16px, calc((100vw - 1080px) / 2));
-  background: color-mix(in srgb, var(--ground) 82%, transparent);
-  backdrop-filter: saturate(1.4) blur(12px);
-  -webkit-backdrop-filter: saturate(1.4) blur(12px);
-  border-bottom: 1px solid var(--rule);
-}
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  text-decoration: none;
-}
-.brand img { border-radius: 8px; }
-.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
-.lang { display: flex; border: 1px solid var(--rule-strong); border-radius: 999px; overflow: hidden; }
-.lang button {
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 650;
-  padding: 0.3rem 0.65rem;
-  border: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  cursor: pointer;
-}
-.lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-.pill {
-  background: var(--accent);
-  color: #fff;
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 0.9rem;
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  white-space: nowrap;
 }
 
 /* ---------- hero ---------- */
